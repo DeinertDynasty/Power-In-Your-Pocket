@@ -1,0 +1,143 @@
+/* General background and font */
+body {
+  background: linear-gradient(120deg, #b5f3ff 0%, #fbeee6 100%);
+  min-height: 100vh;
+  margin: 0;
+  font-family: 'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Card containers */
+.card {
+  max-width: 430px;
+  margin: 48px auto;
+  padding: 24px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 8px 32px #0001, 0 1.5px 6px #b5f3ff88;
+  border: none;
+}
+
+@media (max-width: 550px) {
+  .card {
+    max-width: 97vw;
+    padding: 14px 4vw;
+  }
+}
+
+/* Buttons */
+.button {
+  background: #23a6d5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 22px;
+  font-weight: 700;
+  font-size: 17px;
+  margin: 0 6px 8px 0;
+  box-shadow: 0 2px 8px #0001;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  outline: none;
+}
+.button:hover,
+.button:focus {
+  background: #0b79b5;
+  transform: translateY(-2px) scale(1.04);
+}
+
+/* Feedback for speech correctness */
+.feedback-correct {
+  font-weight: bold;
+  color: #21ba63;
+  font-size: 21px;
+  margin: 10px 0 8px;
+}
+.feedback-incorrect {
+  font-weight: bold;
+  color: #ef3b4c;
+  font-size: 21px;
+  margin: 10px 0 8px;
+}
+
+/* Progress Bar */
+.progress-outer {
+  background: #eee;
+  border-radius: 7px;
+  overflow: hidden;
+  height: 15px;
+  margin: 13px 0 20px;
+}
+.progress-inner {
+  background: #23a6d5;
+  height: 100%;
+  transition: width 0.3s;
+}
+
+/* Section/tab bar for modes */
+.mode-tabbar {
+  background: #23a6d5;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+  margin: 22px auto 26px;
+  padding: 8px 0;
+  max-width: 360px;
+  font-size: 19px;
+  letter-spacing: 0.4px;
+  text-align: center;
+  box-shadow: 0 2px 8px #0001;
+}
+
+/* Category picker select */
+.category-picker {
+  width: 100%;
+  padding: 7px;
+  font-size: 15px;
+  border-radius: 7px;
+  border: 1px solid #bbb;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  background: #fafdff;
+}
+
+.category-label {
+  font-weight: 600;
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+/* Leaderboard overrides: more spacing for new style */
+.leaderboard {
+  position: fixed;
+  top: 40px;
+  right: 20px;
+  width: 260px;
+  background: #f6f8fa;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px #0001;
+  padding: 16px 18px;
+  z-index: 100;
+  font-family: 'Atkinson Hyperlegible', Arial, sans-serif;
+}
+
+.leaderboard h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.leaderboard ol {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.leaderboard li {
+  margin: 10px 0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 15px;
+  transition: background 0.17s;
+}
