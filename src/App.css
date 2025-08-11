@@ -1,38 +1,388 @@
-.App {
-  text-align: center;
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import "./PowerStyle.css";
+import AuthGate from "./AuthGate";
+import Leaderboard from "./Leaderboard";
+
+import flashcards from "./flashcards";
+import { fundamentals, objections } from "./script";
+
+import Quiz from "./Quiz";
+import { getScriptQuiz, urgencyQuiz } from "./quizzes";
+
+import AdvancedTeleprompter from "./AdvancedTeleprompter";
+import { advGraph, advStartId } from "./advancedScript";
+
+import { getLeaderboard, submitScore, getOverall } from "./LeaderboardService";
+import { getCurrentUser, logout as doLogout } from "./Accounts";
+import UrgencyTraining from "./UrgencyTraining";
+
+/* ---------------- Teleprompter: Reader (auto-scroll) ---------------- */
+function TeleprompterReader({ lines }) {
+  const viewportRef = useRef(null);
+  const contentRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const [running, setRunning] = useState(true);
+  const [speed, setSpeed] = useState(60); // px/sec
+  const [offset, setOffset] = useState(0);
+
+  // Build a single text block from lines
+  const text = useMemo(() => lines.join("\n\n"), [lines]);
+
+  useEffect(() => {
+    const step = () => {
+      if (!viewportRef.current || !contentRef.current) return;
+      const vh = viewportRef.current.clientHeight;
+      const ch = contentRef.current.scrollHeight;
+      const max = Math.max(ch - vh, 0);
+      setOffset(prev => {
+        const next = Math.min(prev + speed / 60, max);
+        if (next >= max) setRunning(false);
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(step);
+    };
+    if (running) rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [running, speed]);
+
+  // Clamp offset if size changes
+  useEffect(() => {
+    const onResize = () => {
+      if (!viewportRef.current || !contentRef.current) return;
+      const vh = viewportRef.current.clientHeight;
+      const ch = contentRef.current.scrollHeight;
+      const max = Math.max(ch - vh, 0);
+      setOffset(o => Math.min(o, max));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  return (
+    <div>
+      <div className="tele-viewport" ref={viewportRef}>
+        <div
+          ref={contentRef}
+          className="tele-content"
+          style={{ transform: `translateY(-${offset}px)` }}
+        >
+          {text.split("\n").map((t, i) => (
+            <p key={i} style={{ margin: "0 0 14px" }}>{t}</p>
+          ))}
+        </div>
+        <div className="tele-fade-top" />
+        <div className="tele-fade-btm" />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <button className="button" onClick={() => setRunning(r => !r)}>{running ? "Pause" : "Play"}</button>
+        <button className="button secondary" onClick={() => { setOffset(0); setRunning(true); }}>Restart</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="small">Speed</span>
+          <input type="range" min="20" max="200" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
+          <span className="small">{speed}px/s</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* ---------------- Teleprompter: Scored (line-by-line) ---------------- */
+function TeleprompterScored({ script, onFinish }) {
+  const [line, setLine] = useState(0);
+  const [score, setScore] = useState(0);
+  const total = script.length;
+
+  const next = () => setLine((p) => Math.min(p + 1, total - 1));
+  const prev = () => setLine((p) => Math.max(p - 1, 0));
+
+  const markCorrect = () => {
+    const nextScore = score + 1;
+    if (line === total - 1) onFinish?.({ score: nextScore, total });
+    else { setScore(nextScore); next(); }
+  };
+  const markIncorrect = () => {
+    if (line === total - 1) onFinish?.({ score, total });
+    else next();
+  };
+
+  return (
+    <>
+      <div style={{ marginBottom: 10, color: "#666" }}>Line {line + 1} / {total}</div>
+      <div style={{ fontSize: 22, lineHeight: 1.45, margin: "10px 0 14px" }}>{script[line]}</div>
+      <div className="progress-outer"><div className="progress-inner" style={{ width: `${((line + 1) / total) * 100}%` }} /></div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="button" onClick={prev} disabled={line === 0}>Previous</button>
+        <button className="button" onClick={markCorrect}>Mark Correct</button>
+        <button className="button" onClick={markIncorrect}>Mark Incorrect</button>
+        <button className="button" onClick={() => next()} disabled={line === total - 1}>Next</button>
+      </div>
+      <div style={{ marginTop: 10, color: "#0a8", fontWeight: 700 }}>Score: {score} / {total}</div>
+    </>
+  );
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+/* ---------------- Teleprompter wrapper (Reader/Scored tabs) ---------------- */
+function TeleprompterCard({ title, script, onFinish }) {
+  const [tab, setTab] = useState("reader"); // 'reader' | 'scored'
+  return (
+    <div className="card" style={{ textAlign: "left" }}>
+      <div className="mode-tabbar">{title}</div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button className={`button ${tab === "reader" ? "" : "secondary"}`} onClick={() => setTab("reader")}>Reader</button>
+        <button className={`button ${tab === "scored" ? "" : "secondary"}`} onClick={() => setTab("scored")}>Scored</button>
+      </div>
+
+      {tab === "reader" ? (
+        <TeleprompterReader lines={script} />
+      ) : (
+        <TeleprompterScored script={script} onFinish={onFinish} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Flashcards ---------------- */
+function Flashcards({ data, onFinish }) {
+  const [filter, setFilter] = useState("All");
+  const [index, setIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [score, setScore] = useState(0);
+
+  const categories = ["All", ...Array.from(new Set(data.map((f) => f.category)))];
+  const deck = filter === "All" ? data : data.filter((f) => f.category === filter);
+
+  useEffect(() => { setIndex(0); setShowAnswer(false); setScore(0); }, [filter]);
+
+  if (!deck.length) {
+    return (
+      <div className="card">
+        <div className="mode-tabbar">Flashcards</div>
+        <p>No flashcards in this category.</p>
+      </div>
+    );
   }
+
+  const current = deck[index];
+
+  const markCorrect = () => {
+    const nextScore = score + 1;
+    if (index === deck.length - 1) onFinish?.({ score: nextScore, total: deck.length });
+    else { setScore(nextScore); setIndex((i) => i + 1); setShowAnswer(false); }
+  };
+  const markIncorrect = () => {
+    if (index === deck.length - 1) onFinish?.({ score, total: deck.length });
+    else { setIndex((i) => i + 1); setShowAnswer(false); }
+  };
+
+  return (
+    <div className="card" style={{ textAlign: "left" }}>
+      <div className="mode-tabbar">Flashcards</div>
+      <label className="category-label">Category</label>
+      <select className="category-picker" value={filter} onChange={(e) => setFilter(e.target.value)}>
+        {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+
+      <div style={{ marginTop: 10, color: "#666" }}>Card {index + 1} / {deck.length}</div>
+
+      <div style={{ fontWeight: 700, fontSize: 18, marginTop: 8 }}>{current.question}</div>
+      <div style={{ margin: "10px 0 14px", padding: 12, borderRadius: 10, background: showAnswer ? "#fff" : "#f5fbff", whiteSpace: "pre-wrap" }}>
+        {showAnswer ? current.answer : "Tap Show Answer to reveal."}
+      </div>
+
+      <div className="progress-outer"><div className="progress-inner" style={{ width: `${((index + 1) / deck.length) * 100}%` }} /></div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="button" onClick={() => setShowAnswer(true)}>Show Answer</button>
+        <button className="button" onClick={markCorrect}>Mark Correct</button>
+        <button className="button" onClick={markIncorrect}>Mark Incorrect</button>
+      </div>
+
+      <div style={{ marginTop: 10, color: "#0a8", fontWeight: 700 }}>Score: {score} / {deck.length}</div>
+    </div>
+  );
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
+/* ---------------- App ---------------- */
+export default function App() {
+  const [mode, setMode] = useState("flashcards");
+  const [theme, setTheme] = useState("");                // '', 'bold', 'dark'
+  const [focus, setFocus] = useState(() => localStorage.getItem("focus") === "1");
+  const [saveNotice, setSaveNotice] = useState("");
 
-.App-link {
-  color: #61dafb;
-}
+  const currentUser = getCurrentUser();
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  // leaderboards
+  const [lbFlash, setLbFlash] = useState([]);
+  const [lbTele, setLbTele] = useState([]);
+  const [lbTeleAdv, setLbTeleAdv] = useState([]);
+  const [lbQuizScript, setLbQuizScript] = useState([]);
+  const [lbQuizUrgency, setLbQuizUrgency] = useState([]);
+  const [lbOverall, setLbOverall] = useState([]);
+
+  const refreshBoards = () => {
+    setLbFlash(getLeaderboard("flashcards"));
+    setLbTele(getLeaderboard("teleprompter"));
+    setLbTeleAdv(getLeaderboard("teleprompter-advanced"));
+    setLbQuizScript(getLeaderboard("quiz-script"));
+    setLbQuizUrgency(getLeaderboard("quiz-urgency"));
+    setLbOverall(getOverall());
+  };
+  useEffect(() => { refreshBoards(); }, []);
+
+  // Dynamic Script Quiz (built from flashcards + scripts)
+  const dynamicScriptQuiz = useMemo(
+    () => getScriptQuiz(flashcards, fundamentals, objections, 12),
+    []
+  );
+
+  // ----- Theme + Accent per mode -----
+  const accentKey = useMemo(() => {
+    if (mode === "flashcards") return "flashcards";
+    if (mode === "teleprompter-fund" || mode === "teleprompter-obj") return "teleprompter";
+    if (mode === "teleprompter-adv") return "teleprompter-advanced";
+    if (mode === "quiz-script") return "quiz-script";
+    if (mode === "quiz-urgency") return "quiz-urgency";
+    if (mode === "urgency-training") return "urgency-training";
+    return "teleprompter";
+  }, [mode]);
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme || "");
+  }, [theme]);
+  useEffect(() => {
+    document.body.setAttribute("data-accent", accentKey);
+  }, [accentKey]);
+
+  // ----- Save handlers -----
+  const handleFinish = ({ scope, score }) => {
+    const nickname = currentUser?.displayName || currentUser?.username || "Anon";
+    submitScore(scope, { nickname, score });
+    refreshBoards();
+    setSaveNotice(`Saved ${score} for ${nickname} in ${scope}`);
+    setTimeout(() => setSaveNotice(""), 2500);
+  };
+
+  // ----- UI -----
+  const cycleTheme = () => setTheme(t => (t === "" ? "bold" : t === "bold" ? "dark" : ""));
+  const toggleFocus = () => {
+    setFocus(f => {
+      const next = !f;
+      localStorage.setItem("focus", next ? "1" : "0");
+      return next;
+    });
+  };
+
+  return (
+    <AuthGate>
+      <div className="content-wrap">
+        {/* Top-right controls */}
+        <div style={{ position: "fixed", top: 8, right: 8, display: "flex", gap: 8, zIndex: 999 }}>
+          <button className="button" onClick={toggleFocus}>{focus ? "Exit Focus" : "Focus Mode"}</button>
+          <button className="button" onClick={cycleTheme}>Theme</button>
+          <button className="button" onClick={() => { doLogout(); window.location.reload(); }}>Logout</button>
+        </div>
+
+        {/* Save notice */}
+        {saveNotice && (
+          <div style={{
+            position: "fixed", top: 8, left: 8, zIndex: 999, background: "#e8fff3",
+            border: "1px solid #19a663", padding: "8px 12px", borderRadius: 8, fontSize: 14
+          }}>
+            {saveNotice}
+          </div>
+        )}
+
+        {/* Leaderboards sidebar (hidden in focus mode) */}
+        {!focus && (
+          <div className="sidebar">
+            <Leaderboard title="Overall" scores={lbOverall} />
+            <Leaderboard title="Flashcards" scores={lbFlash} />
+            <Leaderboard title="Teleprompter (Basic)" scores={lbTele} />
+            <Leaderboard title="Teleprompter (Advanced)" scores={lbTeleAdv} />
+            <Leaderboard title="Quiz: Script" scores={lbQuizScript} />
+            <Leaderboard title="Quiz: Urgency" scores={lbQuizUrgency} />
+          </div>
+        )}
+
+        {/* Mode switcher */}
+        <div className="card" style={{ maxWidth: 900 }}>
+          <div className="mode-tabbar">Training Modes</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="button" onClick={() => setMode("flashcards")}>Flashcards</button>
+            <button className="button" onClick={() => setMode("teleprompter-fund")}>Teleprompter: Fundamentals</button>
+            <button className="button" onClick={() => setMode("teleprompter-obj")}>Teleprompter: Objections</button>
+            <button className="button" onClick={() => setMode("teleprompter-adv")}>Teleprompter: Advanced</button>
+            <button className="button" onClick={() => setMode("quiz-script")}>Quiz: Script</button>
+            <button className="button" onClick={() => setMode("quiz-urgency")}>Quiz: Urgency</button>
+            <button className="button" onClick={() => setMode("urgency-training")}>Urgency Training</button>
+          </div>
+        </div>
+
+        {/* Mode content */}
+        {mode === "flashcards" && (
+          <Flashcards
+            data={flashcards}
+            onFinish={({ score }) => handleFinish({ scope: "flashcards", score })}
+          />
+        )}
+
+        {mode === "teleprompter-fund" && (
+          <TeleprompterCard
+            title="Teleprompter: Fundamentals"
+            script={fundamentals}
+            onFinish={({ score }) => handleFinish({ scope: "teleprompter", score })}
+          />
+        )}
+
+        {mode === "teleprompter-obj" && (
+          <TeleprompterCard
+            title="Teleprompter: Objections"
+            script={objections}
+            onFinish={({ score }) => handleFinish({ scope: "teleprompter", score })}
+          />
+        )}
+
+        {mode === "teleprompter-adv" && (
+          <div className="card" style={{ textAlign: "left" }}>
+            <div className="mode-tabbar">Teleprompter: Advanced</div>
+            <AdvancedTeleprompter
+              graph={advGraph}
+              startId={advStartId}
+              scope="teleprompter-advanced"
+              onFinish={({ score }) => handleFinish({ scope: "teleprompter-advanced", score })}
+            />
+          </div>
+        )}
+
+        {mode === "quiz-script" && (
+          <div className="card" style={{ textAlign: "left" }}>
+            <div className="mode-tabbar">Quiz: Script (Auto-Generated)</div>
+            <Quiz
+              title=""
+              items={dynamicScriptQuiz}
+              scope="quiz-script"
+              onFinish={({ score }) => handleFinish({ scope: "quiz-script", score })}
+            />
+          </div>
+        )}
+
+        {mode === "quiz-urgency" && (
+          <div className="card" style={{ textAlign: "left" }}>
+            <div className="mode-tabbar">Quiz: Urgency</div>
+            <Quiz
+              title=""
+              items={urgencyQuiz}
+              scope="quiz-urgency"
+              onFinish={({ score }) => handleFinish({ scope: "quiz-urgency", score })}
+            />
+          </div>
+        )}
+
+        {mode === "urgency-training" && <UrgencyTraining />}
+      </div>
+    </AuthGate>
+  );
 }
