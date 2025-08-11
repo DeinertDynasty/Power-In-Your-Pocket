@@ -4,7 +4,7 @@ import React, { useState } from "react";
  * props:
  * - title: string
  * - items: [{ q, choices:[], answerIndex, explain }]
- * - scope: "quiz-script" | "quiz-urgency"
+ * - scope: "quiz-script" | 
  * - onFinish({score,total,scope})
  */
 export default function Quiz({ title, items, onFinish, scope }) {

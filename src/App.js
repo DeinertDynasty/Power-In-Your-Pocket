@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./PowerStyle.css";
+
 import AuthGate from "./AuthGate";
 import Leaderboard from "./Leaderboard";
 
@@ -9,9 +10,10 @@ import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from
 import Quiz from "./Quiz";
 import { getScriptQuiz, urgencyQuiz } from "./quizzes";
 
-import { getLeaderboard, submitScore, getOverall } from "./LeaderboardService";
+import { recordScore, getBoard, getOverall } from "./LeaderboardService";
 import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from "./Accounts";
 import UrgencyTraining from "./UrgencyTraining";
+import LeaderboardsPage from "./LeaderboardsPage";
 
 /* =========================================================
    Teleprompter: Reader (context-aware pace + ADHD highlight + save time)
@@ -145,7 +147,7 @@ function TeleprompterReader({
     } catch {}
   };
 
-  // keyboard shortcuts (↑/↓ adjust px/s when scrolling OR WPM when not)
+  // keyboard shortcuts
   useEffect(() => {
     const onKey = (e) => {
       const tag = (e.target && e.target.tagName) || "";
@@ -204,7 +206,7 @@ function TeleprompterReader({
 
   const currentIdx = Math.floor(progress * Math.max(0, totalWords - 1));
 
-  // render words with styles (past dim, current pink, future normal)
+  // render words (past dim, current highlighted)
   let globalWord = 0;
   const renderParagraph = (ln, key) => {
     const words = ln.trim().split(/\s+/).filter(Boolean);
@@ -334,9 +336,9 @@ function TeleprompterReader({
 function TeleprompterStudio({ onSaveSession }) {
   const SCRIPT_SETS = useMemo(() => ([
     { key: "Initial_Scripting", label: "Initial_Scripting", lines: Initial_Scripting },
-     { key: "Buying_Questions", label: "Buying_Questions", lines: Buying_Questions },
-      { key: "Objection", label: "Objection", lines: Objection },
-    { key: "Procrastinations",   label: "Procrastinations",   lines: Procrastinations   },
+    { key: "Buying_Questions", label: "Buying_Questions", lines: Buying_Questions },
+    { key: "Objection", label: "Objection", lines: Objection },
+    { key: "Procrastinations", label: "Procrastinations", lines: Procrastinations },
   ]), []);
 
   const [choice, setChoice] = useState(SCRIPT_SETS[0].key);
@@ -389,7 +391,7 @@ function TeleprompterStudio({ onSaveSession }) {
 }
 
 /* =========================================================
-   Flashcards (for study mode; quiz uses Quiz)
+   Flashcards (study mode; quiz uses Quiz)
    ========================================================= */
 function Flashcards({ data, onFinish }) {
   const [filter, setFilter] = useState("All");
@@ -452,24 +454,6 @@ function Flashcards({ data, onFinish }) {
 }
 
 /* =========================================================
-   Leaderboards page
-   ========================================================= */
-function LeaderboardsPage({ lbOverall, lbFlash, lbTele, lbQuizScript, lbQuizUrgency }) {
-  return (
-    <div className="card" style={{ textAlign: "left", maxWidth: 1000 }}>
-      <div className="mode-tabbar">Leaderboards</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <Leaderboard title="Overall" scores={lbOverall} />
-        <Leaderboard title="Flashcards" scores={lbFlash} />
-        <Leaderboard title="Teleprompter (Time)" scores={lbTele} />
-        <Leaderboard title="Quiz: Script" scores={lbQuizScript} />
-        <Leaderboard title="Quiz: Urgency" scores={lbQuizUrgency} />
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
    App
    ========================================================= */
 export default function App() {
@@ -482,20 +466,24 @@ export default function App() {
   const [mode, setMode] = useState("teleprompter-studio"); // default to Studio
   const [saveNotice, setSaveNotice] = useState("");
 
-  // leaderboards
-  const [lbFlash, setLbFlash] = useState([]);
-  const [lbTele, setLbTele] = useState([]);
-  const [lbQuizScript, setLbQuizScript] = useState([]);
-  const [lbQuizUrgency, setLbQuizUrgency] = useState([]);
-  const [lbOverall, setLbOverall] = useState([]);
+  // Leaderboards (yearly via LeaderboardService)
+  const [boards, setBoards] = useState({
+    overall: getOverall(),
+    flash: getBoard("flashcards"),
+    teleBasic: getBoard("teleprompter-time"),
+    teleAdv: getBoard("teleprompter-advanced"),
+    quizScript: getBoard("quiz-script"),
+    quizUrgency: getBoard("quiz-urgency"),
+  });
 
-  const refreshBoards = () => {
-    setLbFlash(getLeaderboard("flashcards"));
-    setLbTele(getLeaderboard("teleprompter")); // scored by session time
-    setLbQuizScript(getLeaderboard("quiz-script"));
-    setLbQuizUrgency(getLeaderboard("quiz-urgency"));
-    setLbOverall(getOverall());
-  };
+  const refreshBoards = () => setBoards({
+    overall: getOverall(),
+    flash: getBoard("flashcards"),
+    teleBasic: getBoard("teleprompter-time"),
+    teleAdv: getBoard("teleprompter-advanced"),
+    quizScript: getBoard("quiz-script"),
+    quizUrgency: getBoard("quiz-urgency"),
+  });
   useEffect(() => { refreshBoards(); }, []);
 
   // dynamic Script Quiz (built from flashcards + scripts)
@@ -523,20 +511,22 @@ export default function App() {
   useEffect(() => { writeUserKey(username, "pref:theme", theme); }, [theme, username]);
   useEffect(() => { writeUserKey(username, "pref:focus", !!focus); }, [focus, username]);
 
-  const handleFinish = ({ scope, score }) => {
+  // Score handlers (use recordScore -> yearly, % based)
+  const handleFinish = ({ scope, score, total }) => {
     const nickname = user?.displayName || user?.username || "Anon";
-    submitScore(scope, { nickname, score });
+    recordScore(scope, score, total);
     refreshBoards();
-    setSaveNotice(`Saved ${score} for ${nickname} in ${scope}`);
+    setSaveNotice(`Saved ${score}/${total} for ${nickname} in ${scope}`);
     setTimeout(() => setSaveNotice(""), 2500);
   };
 
-  // Save Teleprompter session time (in seconds) to the leaderboard
+  // Save Teleprompter session time (seconds) as % of a 60‑minute cap
   const handleTeleSave = (seconds) => {
     const nickname = user?.displayName || user?.username || "Anon";
-    submitScore("teleprompter", { nickname, score: Number(seconds) });
+    const capped = Math.max(0, Math.min(3600, Number(seconds) || 0));
+    recordScore("teleprompter-time", capped, 3600);
     refreshBoards();
-    setSaveNotice(`Saved ${seconds}s Teleprompter for ${nickname}`);
+    setSaveNotice(`Saved ${capped}s Teleprompter for ${nickname}`);
     setTimeout(() => setSaveNotice(""), 2500);
   };
 
@@ -566,11 +556,12 @@ export default function App() {
         {/* Sidebar leaderboards (hidden in Focus Mode) */}
         {!focus && (
           <div className="sidebar">
-            <Leaderboard title="Overall" scores={lbOverall} />
-            <Leaderboard title="Flashcards" scores={lbFlash} />
-            <Leaderboard title="Teleprompter (Time)" scores={lbTele} />
-            <Leaderboard title="Quiz: Script" scores={lbQuizScript} />
-            <Leaderboard title="Quiz: Urgency" scores={lbQuizUrgency} />
+            <Leaderboard title="Overall" scores={boards.overall} />
+            <Leaderboard title="Flashcards" scores={boards.flash} />
+            <Leaderboard title="Teleprompter (Time)" scores={boards.teleBasic} />
+            <Leaderboard title="Teleprompter (Advanced)" scores={boards.teleAdv} />
+            <Leaderboard title="Quiz: Script" scores={boards.quizScript} />
+            <Leaderboard title="Quiz: Urgency" scores={boards.quizUrgency} />
           </div>
         )}
 
@@ -593,7 +584,7 @@ export default function App() {
         {mode === "flashcards" && (
           <Flashcards
             data={flashcards}
-            onFinish={({ score }) => handleFinish({ scope: "flashcards", score })}
+            onFinish={({ score, total }) => handleFinish({ scope: "flashcards", score, total })}
           />
         )}
 
@@ -604,7 +595,7 @@ export default function App() {
               title=""
               items={dynamicScriptQuiz}
               scope="quiz-script"
-              onFinish={({ score }) => handleFinish({ scope: "quiz-script", score })}
+              onFinish={({ score, total }) => handleFinish({ scope: "quiz-script", score, total })}
             />
           </div>
         )}
@@ -616,7 +607,7 @@ export default function App() {
               title=""
               items={urgencyQuiz}
               scope="quiz-urgency"
-              onFinish={({ score }) => handleFinish({ scope: "quiz-urgency", score })}
+              onFinish={({ score, total }) => handleFinish({ scope: "quiz-urgency", score, total })}
             />
           </div>
         )}
@@ -624,13 +615,7 @@ export default function App() {
         {mode === "urgency-training" && <UrgencyTraining />}
 
         {mode === "leaderboards" && (
-          <LeaderboardsPage
-            lbOverall={lbOverall}
-            lbFlash={lbFlash}
-            lbTele={lbTele}
-            lbQuizScript={lbQuizScript}
-            lbQuizUrgency={lbQuizUrgency}
-          />
+          <LeaderboardsPage boards={boards} onRefresh={refreshBoards} />
         )}
       </div>
     </AuthGate>

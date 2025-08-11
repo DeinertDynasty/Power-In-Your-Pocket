@@ -2,7 +2,6 @@ import React from "react";
 import Leaderboard from "./Leaderboard";
 
 /**
- * A single page showing all leaderboards together.
  * Props:
  *  - boards: { overall, flash, teleBasic, teleAdv, quizScript, quizUrgency }
  *  - onRefresh: () => void
@@ -10,7 +9,19 @@ import Leaderboard from "./Leaderboard";
 export default function LeaderboardsPage({ boards, onRefresh }) {
   return (
     <div className="card" style={{ maxWidth: 1100 }}>
-      <div className="mode-tabbar">Leaderboards</div>
+      {/* Royal gold/purple tab bar */}
+      <div
+        className="mode-tabbar"
+        style={{
+          background: "linear-gradient(135deg, #FFD700 0%, #E6C200 30%, #6A0DAD 100%)",
+          color: "#1e1140",
+          fontWeight: 900,
+          letterSpacing: 0.3,
+          textShadow: "0 1px 0 rgba(255,255,255,0.4)"
+        }}
+      >
+        Leaderboards 👑
+      </div>
 
       <div
         style={{
@@ -32,7 +43,7 @@ export default function LeaderboardsPage({ boards, onRefresh }) {
       </div>
 
       <div className="small" style={{ marginTop: 8 }}>
-        (Scores are stored locally in this browser.)
+        (Scores save in this browser and auto‑reset each January 1.)
       </div>
     </div>
   );
