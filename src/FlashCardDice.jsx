@@ -1,57 +1,88 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getCurrentUser } from "./Accounts";
+import { addAuraPoints } from "./LeaderboardService";
+
+// N‑sided dice study that pulls from the ENTIRE flashcard deck (all categories).
 
 const AURA_KEY = (u) => `user:${u?.username || "anon"}:auraPoints`;
 const MASTER_KEY = (u) => `user:${u?.username || "anon"}:flashMastered`;
 
-export default function FlashcardDice({ cards = [] }) {
+function flattenCards(cards) {
+  if (!Array.isArray(cards)) return [];
+  const flat = [];
+  const stack = [...cards];
+  while (stack.length) {
+    const item = stack.pop();
+    if (Array.isArray(item)) stack.push(...item);
+    else flat.push(item);
+  }
+  return flat;
+}
+
+export default function FlashCardDice({ cards = [] }) {
   const user = getCurrentUser();
+
+  // Use EVERY flashcard (all categories)
+  const allCards = useMemo(() => {
+    const flat = flattenCards(cards);
+    return flat.map((c, idx) => ({
+      id: idx,
+      q: c.q || c.question || "",
+      a: c.a || c.answer || "",
+      category: c.category || "General",
+    })).filter(c => c.q && c.a);
+  }, [cards]);
+
   const [rolling, setRolling] = useState(false);
-  const [die, setDie] = useState(1);
+  const [face, setFace] = useState(1);          // shows 1..N
+  const [pickedIdx, setPickedIdx] = useState(null);
   const [showCongrats, setShowCongrats] = useState(false);
+
+  // Per-user Aura + mastered
   const [aura, setAura] = useState(() => Number(localStorage.getItem(AURA_KEY(user)) || 0));
   const [mastered, setMastered] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem(MASTER_KEY(user)) || "[]")); }
     catch { return new Set(); }
   });
 
-  const activeCards = useMemo(() => cards
-    .map((c, idx) => ({ ...c, id: idx }))
-    .filter(c => !mastered.has(c.id)), [cards, mastered]);
+  const activeCards = useMemo(() => allCards.filter(c => !mastered.has(c.id)), [allCards, mastered]);
+  const N = activeCards.length;
 
-  useEffect(() => {
-    localStorage.setItem(AURA_KEY(user), String(aura));
-  }, [aura, user]);
-
-  useEffect(() => {
-    localStorage.setItem(MASTER_KEY(user), JSON.stringify(Array.from(mastered)));
-  }, [mastered, user]);
+  useEffect(() => { localStorage.setItem(AURA_KEY(user), String(aura)); }, [aura, user]);
+  useEffect(() => { localStorage.setItem(MASTER_KEY(user), JSON.stringify([...mastered])); }, [mastered, user]);
 
   const roll = () => {
-    if (!activeCards.length) return;
+    if (!N) return;
     setRolling(true);
-    let t = 0, n = 0;
+    setPickedIdx(null);
+
+    const steps = 22 + Math.floor(Math.random() * 12); // ~1s
+    let t = 0;
     const timer = setInterval(() => {
-      n = (Math.floor(Math.random() * 6) + 1);
-      setDie(n);
+      const next = (t % N) + 1;   // cycle 1..N
+      setFace(next);
       t += 1;
-      // subtle color change is via CSS gradient below (based on die)
-      if (t > 18) { // ~1s
+      if (t >= steps) {
         clearInterval(timer);
+        const finalFace = Math.floor(Math.random() * N) + 1;
+        setFace(finalFace);
+        setPickedIdx(finalFace - 1);
         setRolling(false);
       }
-    }, 55);
+    }, Math.max(28, 85 - Math.min(N, 40)));
   };
 
-  // Pick card by modular index
-  const currentCard = activeCards.length ? activeCards[(die - 1) % activeCards.length] : null;
+  const currentCard = (N && pickedIdx != null) ? activeCards[pickedIdx] : null;
 
   const markMastered = () => {
     if (!currentCard) return;
-    const next = new Set(mastered);
-    next.add(currentCard.id);
+    const next = new Set(mastered); next.add(currentCard.id);
     setMastered(next);
+
+    // Aura +5
     setAura(a => a + 5);
+    addAuraPoints(5);
+
     setShowCongrats(true);
     setTimeout(() => setShowCongrats(false), 1200);
   };
@@ -59,45 +90,54 @@ export default function FlashcardDice({ cards = [] }) {
   const resetAll = () => {
     setMastered(new Set());
     setAura(0);
+    setPickedIdx(null);
+    setFace(1);
   };
 
   return (
     <div className="card" style={{ textAlign: "left" }}>
-      <div className="mode-tabbar">Flashcard Dice Study</div>
+      <div className="mode-tabbar">Flashcard Dice Study (All Cards)</div>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-        <button className="button" onClick={roll} disabled={rolling || !activeCards.length}>
-          {rolling ? "Rolling…" : "Roll Dice"}
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+        <button className="button" onClick={roll} disabled={rolling || !N}>
+          {rolling ? "Rolling…" : `Roll ${N || 0}-Sided Die`}
         </button>
+
         <div style={{
-          width: 58, height: 58, borderRadius: 12, display: "grid", placeItems: "center",
-          fontSize: 24, fontWeight: 800, border: "1px solid #999",
-          // subtle color shifts while changing faces
-          background: `linear-gradient(135deg, rgba(${40+die*20},${40+die*10},${120+die*15},0.18), rgba(230,210,60,0.14))`
+          minWidth: 74, height: 58, borderRadius: 12, display: "grid", placeItems: "center",
+          fontSize: 24, fontWeight: 800, border: "1px solid #999", padding: "0 10px",
+          background: `linear-gradient(135deg, rgba(${40+((face%10)*20)},${40+((face%7)*12)},${120+((face%13)*7)},0.18), rgba(230,210,60,0.14))`
         }}>
-          {die}
+          {N ? `${face} / ${N}` : "—"}
         </div>
+
         <div style={{ color: "#666" }}>
           Aura Points: <b>{aura}</b>
         </div>
+
         <button className="button secondary" onClick={resetAll}>Reset Cards & Aura</button>
       </div>
 
-      {!cards.length && <div>No flashcards found.</div>}
-      {cards.length > 0 && !activeCards.length && (
-        <div>All cards mastered 🎉 — hit “Reset Cards & Aura” to study again.</div>
+      {!allCards.length && <div>No flashcards found.</div>}
+      {!!allCards.length && !N && (
+        <div>All {allCards.length} cards mastered 🎉 — hit “Reset Cards & Aura” to study again.</div>
       )}
 
       {currentCard && (
         <div style={{ marginTop: 10 }}>
           <div className="category-label">Question</div>
           <div style={{ background: "#fff", border: "1px solid #cdd", borderRadius: 10, padding: 12 }}>
-            {currentCard.q || currentCard.question || "(missing q)"}
+            {currentCard.q}
           </div>
+
+          <div className="small" style={{ marginTop: 6, color: "#666" }}>
+            Category: <b>{currentCard.category}</b>
+          </div>
+
           <details style={{ marginTop: 10 }}>
             <summary className="category-label">Show Answer</summary>
-            <div style={{ background: "#fff", border: "1px solid #cdd", borderRadius: 10, padding: 12, marginTop: 6 }}>
-              {currentCard.a || currentCard.answer || "(missing a)"}
+            <div style={{ background: "#fff", border: "1px solid #cdd", borderRadius: 10, padding: 12, marginTop: 6, whiteSpace: "pre-wrap" }}>
+              {currentCard.a}
             </div>
           </details>
 
@@ -108,7 +148,6 @@ export default function FlashcardDice({ cards = [] }) {
         </div>
       )}
 
-      {/* ADHD-pleasing, short “Congrats + +5 Aura Points” flash */}
       {showCongrats && (
         <div style={{
           position: "fixed", inset: 0, display: "grid", placeItems: "center",
@@ -121,7 +160,6 @@ export default function FlashcardDice({ cards = [] }) {
             background: "linear-gradient(135deg, rgba(255,215,0,0.95), rgba(128,0,128,0.92))",
             color: "#1a1033",
             textAlign: "center",
-            transform: "scale(1)",
             animation: "popPulse 900ms ease-out"
           }}>
             <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 1 }}>Congrats!</div>

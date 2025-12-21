@@ -2,7 +2,7 @@
 // Lightweight client-side accounts for private beta (use server auth in prod).
 
 const USERS = [
-  { username: "trainee01", password: "Route#01", displayName: "Trainee 01" },
+  { username: "ragincagin", password: "Top5", displayName: "Jodyce" },
   { username: "trainee02", password: "Route#02", displayName: "Trainee 02" },
   { username: "trainee03", password: "Route#03", displayName: "Trainee 03" },
   { username: "trainee04", password: "Route#04", displayName: "Trainee 04" },

@@ -3,13 +3,12 @@ import Leaderboard from "./Leaderboard";
 
 /**
  * Props:
- *  - boards: { overall, flash, teleBasic, teleAdv, quizScript, quizUrgency }
+ *  - boards: { overall, flash, teleBasic, teleAdv, quizScript, quizUrgency, aura }
  *  - onRefresh: () => void
  */
 export default function LeaderboardsPage({ boards, onRefresh }) {
   return (
     <div className="card" style={{ maxWidth: 1100 }}>
-      {/* Royal gold/purple tab bar */}
       <div
         className="mode-tabbar"
         style={{
@@ -36,6 +35,7 @@ export default function LeaderboardsPage({ boards, onRefresh }) {
         <Leaderboard title="Teleprompter (Advanced)" scores={boards.teleAdv} />
         <Leaderboard title="Quiz: Script" scores={boards.quizScript} />
         <Leaderboard title="Quiz: Urgency" scores={boards.quizUrgency} />
+        <Leaderboard title="Aura (Top 10)" scores={boards.aura} />
       </div>
 
       <div style={{ marginTop: 14 }}>
@@ -43,7 +43,7 @@ export default function LeaderboardsPage({ boards, onRefresh }) {
       </div>
 
       <div className="small" style={{ marginTop: 8 }}>
-        (Scores save in this browser and auto‑reset each January 1.)
+        (Scores & Aura save locally and auto‑reset each January 1.)
       </div>
     </div>
   );

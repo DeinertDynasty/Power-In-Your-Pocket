@@ -3,20 +3,20 @@ import "./PowerStyle.css";
 
 import AuthGate from "./AuthGate";
 import Leaderboard from "./Leaderboard";
-
-import flashcards from "./flashcards";
-import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from "./script";
-
-import Quiz from "./Quiz";
-import { getScriptQuiz, urgencyQuiz } from "./quizzes";
-
-import { recordScore, getBoard, getOverall } from "./LeaderboardService";
-import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from "./Accounts";
+import MultiQuizTabs from "./MultiQuizTabs";
+import FlashcardsStudy from "./FlashcardsStudy";
+import FlashCardDice from "./FlashCardDice";
 import UrgencyTraining from "./UrgencyTraining";
 import LeaderboardsPage from "./LeaderboardsPage";
 
+import { recordScore, getBoard, getOverall, getAuraBoard } from "./LeaderboardService";
+import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from "./Accounts";
+
+// Script arrays used by Teleprompter Studio
+import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from "./script";
+
 /* =========================================================
-   Teleprompter: Reader (context-aware pace + ADHD highlight + save time)
+   Teleprompter: Reader (context-aware pace + highlight + save time)
    ========================================================= */
 function TeleprompterReader({
   text,
@@ -154,8 +154,8 @@ function TeleprompterReader({
       if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
 
       if (e.code === "Space") { e.preventDefault(); running ? doPause() : doPlay(); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); needsScrollRef.current ? setSpeed(s => Math.min(s + 10, 250)) : setTargetWPM(w => Math.min(w + 5, 300)); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); needsScrollRef.current ? setSpeed(s => Math.max(s - 10, 20)) : setTargetWPM(w => Math.max(w - 5, 60)); }
+      else if (e.key === "ArrowUp")  { e.preventDefault(); needsScrollRef.current ? setSpeed(s => Math.min(s + 10, 250)) : setTargetWPM(w => Math.min(w + 5, 300)); }
+      else if (e.key === "ArrowDown"){ e.preventDefault(); needsScrollRef.current ? setSpeed(s => Math.max(s - 10, 20)) : setTargetWPM(w => Math.max(w - 5, 60)); }
       else if (e.key.toLowerCase() === "f") { e.preventDefault(); toggleFullscreen(); }
       else if (e.key.toLowerCase() === "m") { e.preventDefault(); setMirror(m => !m); }
       else if (e.key.toLowerCase() === "r") { e.preventDefault(); doRestart(); }
@@ -203,7 +203,6 @@ function TeleprompterReader({
     const currentWordByTime = Math.floor(elapsed * wordsPerSec);
     progress = totalWords > 1 ? Math.min(1, currentWordByTime / (totalWords - 1)) : 1;
   }
-
   const currentIdx = Math.floor(progress * Math.max(0, totalWords - 1));
 
   // render words (past dim, current highlighted)
@@ -331,14 +330,14 @@ function TeleprompterReader({
 }
 
 /* =========================================================
-   Teleprompter Studio (script chooser + section/range picker)
+   Teleprompter Studio (script chooser + range picker)
    ========================================================= */
 function TeleprompterStudio({ onSaveSession }) {
   const SCRIPT_SETS = useMemo(() => ([
     { key: "Initial_Scripting", label: "Initial_Scripting", lines: Initial_Scripting },
     { key: "Buying_Questions", label: "Buying_Questions", lines: Buying_Questions },
-    { key: "Objection", label: "Objection", lines: Objection },
-    { key: "Procrastinations", label: "Procrastinations", lines: Procrastinations },
+    { key: "Objection",       label: "Objection",         lines: Objection },
+    { key: "Procrastinations",label: "Procrastinations",  lines: Procrastinations },
   ]), []);
 
   const [choice, setChoice] = useState(SCRIPT_SETS[0].key);
@@ -351,7 +350,7 @@ function TeleprompterStudio({ onSaveSession }) {
   useEffect(() => {
     setStartLine(1);
     setEndLine(Math.max(1, active.lines?.length || 1));
-  }, [choice]);
+  }, [choice]); // eslint-disable-line
 
   const clampedStart = Math.max(1, Math.min(startLine, endLine));
   const clampedEnd = Math.max(clampedStart, Math.min(endLine, totalLines));
@@ -391,69 +390,6 @@ function TeleprompterStudio({ onSaveSession }) {
 }
 
 /* =========================================================
-   Flashcards (study mode; quiz uses Quiz)
-   ========================================================= */
-function Flashcards({ data, onFinish }) {
-  const [filter, setFilter] = useState("All");
-  const [index, setIndex] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [score, setScore] = useState(0);
-
-  const categories = ["All", ...Array.from(new Set(data.map((f) => f.category)))];
-  const deck = filter === "All" ? data : data.filter((f) => f.category === filter);
-
-  useEffect(() => { setIndex(0); setShowAnswer(false); setScore(0); }, [filter]);
-
-  if (!deck.length) {
-    return (
-      <div className="card">
-        <div className="mode-tabbar">Flashcards</div>
-        <p>No flashcards in this category.</p>
-      </div>
-    );
-  }
-
-  const current = deck[index];
-
-  const markCorrect = () => {
-    const nextScore = score + 1;
-    if (index === deck.length - 1) onFinish?.({ score: nextScore, total: deck.length });
-    else { setScore(nextScore); setIndex((i) => i + 1); setShowAnswer(false); }
-  };
-  const markIncorrect = () => {
-    if (index === deck.length - 1) onFinish?.({ score, total: deck.length });
-    else { setIndex((i) => i + 1); setShowAnswer(false); }
-  };
-
-  return (
-    <div className="card" style={{ textAlign: "left" }}>
-      <div className="mode-tabbar">Flashcards</div>
-      <label className="category-label">Category</label>
-      <select className="category-picker" value={filter} onChange={(e) => setFilter(e.target.value)}>
-        {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-      </select>
-
-      <div style={{ marginTop: 10, color: "#666" }}>Card {index + 1} / {deck.length}</div>
-
-      <div style={{ fontWeight: 700, fontSize: 18, marginTop: 8 }}>{current.question}</div>
-      <div style={{ margin: "10px 0 14px", padding: 12, borderRadius: 10, background: showAnswer ? "#fff" : "#f5fbff", whiteSpace: "pre-wrap" }}>
-        {showAnswer ? current.answer : "Tap Show Answer to reveal."}
-      </div>
-
-      <div className="progress-outer"><div className="progress-inner" style={{ width: `${((index + 1) / deck.length) * 100}%` }} /></div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="button" onClick={() => setShowAnswer(true)}>Show Answer</button>
-        <button className="button" onClick={markCorrect}>Mark Correct</button>
-        <button className="button" onClick={markIncorrect}>Mark Incorrect</button>
-      </div>
-
-      <div style={{ marginTop: 10, color: "#0a8", fontWeight: 700 }}>Score: {score} / {deck.length}</div>
-    </div>
-  );
-}
-
-/* =========================================================
    App
    ========================================================= */
 export default function App() {
@@ -463,10 +399,10 @@ export default function App() {
   // theme & focus persisted per-user
   const [theme, setTheme] = useState(() => readUserKey(username, "pref:theme", ""));
   const [focus, setFocus] = useState(() => readUserKey(username, "pref:focus", false));
-  const [mode, setMode] = useState("teleprompter-studio"); // default to Studio
+  const [mode, setMode] = useState("quizzes"); // default to Quizzes
   const [saveNotice, setSaveNotice] = useState("");
 
-  // Leaderboards (yearly via LeaderboardService)
+  // Leaderboards (yearly via LeaderboardService) + Aura
   const [boards, setBoards] = useState({
     overall: getOverall(),
     flash: getBoard("flashcards"),
@@ -474,6 +410,7 @@ export default function App() {
     teleAdv: getBoard("teleprompter-advanced"),
     quizScript: getBoard("quiz-script"),
     quizUrgency: getBoard("quiz-urgency"),
+    aura: getAuraBoard(),
   });
 
   const refreshBoards = () => setBoards({
@@ -483,21 +420,26 @@ export default function App() {
     teleAdv: getBoard("teleprompter-advanced"),
     quizScript: getBoard("quiz-script"),
     quizUrgency: getBoard("quiz-urgency"),
+    aura: getAuraBoard(),
   });
   useEffect(() => { refreshBoards(); }, []);
 
-  // dynamic Script Quiz (built from flashcards + scripts)
-  const dynamicScriptQuiz = useMemo(
-    () => getScriptQuiz(flashcards, Objection, Initial_Scripting, Procrastinations, Buying_Questions, 12),
-    []
-  );
+  // Save Teleprompter session time (seconds) as % of a 60‑minute cap
+  const handleTeleSave = (seconds) => {
+    const nickname = user?.displayName || user?.username || "Anon";
+    const capped = Math.max(0, Math.min(3600, Number(seconds) || 0));
+    recordScore("teleprompter-time", capped, 3600);
+    refreshBoards();
+    setSaveNotice(`Saved ${capped}s Teleprompter for ${nickname}`);
+    setTimeout(() => setSaveNotice(""), 2500);
+  };
 
   // Accent color per mode
   const accentKey = useMemo(() => {
-    if (mode === "flashcards") return "flashcards";
+    if (mode === "quizzes") return "flashcards";
+    if (mode === "flashcards-study") return "flashcards";
+    if (mode === "dice-study") return "flashcards";
     if (mode === "teleprompter-studio") return "teleprompter";
-    if (mode === "quiz-script") return "quiz-script";
-    if (mode === "quiz-urgency") return "quiz-urgency";
     if (mode === "urgency-training") return "urgency-training";
     if (mode === "leaderboards") return "flashcards";
     return "teleprompter";
@@ -511,27 +453,14 @@ export default function App() {
   useEffect(() => { writeUserKey(username, "pref:theme", theme); }, [theme, username]);
   useEffect(() => { writeUserKey(username, "pref:focus", !!focus); }, [focus, username]);
 
-  // Score handlers (use recordScore -> yearly, % based)
-  const handleFinish = ({ scope, score, total }) => {
-    const nickname = user?.displayName || user?.username || "Anon";
-    recordScore(scope, score, total);
-    refreshBoards();
-    setSaveNotice(`Saved ${score}/${total} for ${nickname} in ${scope}`);
-    setTimeout(() => setSaveNotice(""), 2500);
-  };
-
-  // Save Teleprompter session time (seconds) as % of a 60‑minute cap
-  const handleTeleSave = (seconds) => {
-    const nickname = user?.displayName || user?.username || "Anon";
-    const capped = Math.max(0, Math.min(3600, Number(seconds) || 0));
-    recordScore("teleprompter-time", capped, 3600);
-    refreshBoards();
-    setSaveNotice(`Saved ${capped}s Teleprompter for ${nickname}`);
-    setTimeout(() => setSaveNotice(""), 2500);
-  };
-
   const cycleTheme = () => setTheme(t => (t === "" ? "bold" : t === "bold" ? "dark" : ""));
   const toggleFocus = () => setFocus(f => !f);
+
+  // Pull full deck for Study/Dice (keeps App self-contained)
+  const flashcardsDeck = useMemo(() => {
+    try { const m = require("./flashcards"); return m.default || m.cards || m.flashcards || []; }
+    catch { return []; }
+  }, []);
 
   return (
     <AuthGate>
@@ -562,6 +491,7 @@ export default function App() {
             <Leaderboard title="Teleprompter (Advanced)" scores={boards.teleAdv} />
             <Leaderboard title="Quiz: Script" scores={boards.quizScript} />
             <Leaderboard title="Quiz: Urgency" scores={boards.quizUrgency} />
+            <Leaderboard title="Aura (Top 10)" scores={boards.aura} />
           </div>
         )}
 
@@ -569,54 +499,31 @@ export default function App() {
         <div className="card" style={{ maxWidth: 1000 }}>
           <div className="mode-tabbar">Training Modes</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="button" onClick={() => setMode("teleprompter-studio")}>Teleprompter Studio</button>
-            <button className="button" onClick={() => setMode("flashcards")}>Flashcards</button>
-            <button className="button" onClick={() => setMode("quiz-script")}>Quiz: Script</button>
-            <button className="button" onClick={() => setMode("quiz-urgency")}>Quiz: Urgency</button>
+            <button className="button" onClick={() => setMode("quizzes")}>Quizzes</button>
+            <button className="button" onClick={() => setMode("flashcards-study")}>Flashcards Study</button>
+            <button className="button" onClick={() => setMode("dice-study")}>Dice Study</button>
             <button className="button" onClick={() => setMode("urgency-training")}>Urgency Training</button>
+            <button className="button" onClick={() => setMode("teleprompter-studio")}>Teleprompter Studio</button>
             <button className="button" onClick={() => setMode("leaderboards")}>Leaderboards</button>
           </div>
         </div>
 
-        {/* Content */}
-        {mode === "teleprompter-studio" && <TeleprompterStudio onSaveSession={handleTeleSave} />}
-
-        {mode === "flashcards" && (
-          <Flashcards
-            data={flashcards}
-            onFinish={({ score, total }) => handleFinish({ scope: "flashcards", score, total })}
-          />
+        {/* Views */}
+        {mode === "quizzes" && <MultiQuizTabs />}
+        {mode === "flashcards-study" && (
+          <FlashcardsStudy cards={flashcardsDeck} onBack={() => setMode("quizzes")} />
         )}
-
-        {mode === "quiz-script" && (
-          <div className="card" style={{ textAlign: "left" }}>
-            <div className="mode-tabbar">Quiz: Script (Auto-Generated)</div>
-            <Quiz
-              title=""
-              items={dynamicScriptQuiz}
-              scope="quiz-script"
-              onFinish={({ score, total }) => handleFinish({ scope: "quiz-script", score, total })}
-            />
-          </div>
+        {mode === "dice-study" && (
+          <FlashCardDice cards={flashcardsDeck} />
         )}
-
-        {mode === "quiz-urgency" && (
-          <div className="card" style={{ textAlign: "left" }}>
-            <div className="mode-tabbar">Quiz: Urgency</div>
-            <Quiz
-              title=""
-              items={urgencyQuiz}
-              scope="quiz-urgency"
-              onFinish={({ score, total }) => handleFinish({ scope: "quiz-urgency", score, total })}
-            />
-          </div>
-        )}
-
         {mode === "urgency-training" && <UrgencyTraining />}
+        {mode === "teleprompter-studio" && <TeleprompterStudio onSaveSession={handleTeleSave} />}
+        {mode === "leaderboards" && <LeaderboardsPage boards={boards} onRefresh={refreshBoards} />}
 
-        {mode === "leaderboards" && (
-          <LeaderboardsPage boards={boards} onRefresh={refreshBoards} />
-        )}
+        {/* Footer */}
+        <div style={{ marginTop: 24, fontSize: 12, color: "#777" }}>
+          © {new Date().getFullYear()} Phoenix — Training tools for performance
+        </div>
       </div>
     </AuthGate>
   );

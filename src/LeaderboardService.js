@@ -1,49 +1,23 @@
 // Year-scoped localStorage leaderboards with automatic yearly reset.
-// Simple API:
+// Adds: Aura points tracking + Aura Top 10.
+// API:
 //   recordScore(scope, score, total)
 //   getBoard(scope)
 //   getOverall()
+//   addAuraPoints(amount)   <-- NEW
+//   getAuraBoard()          <-- NEW
 
 const YEAR = new Date().getFullYear();
-const KEY = (scope) => `leaderboard:${YEAR}:${scope}`;
+const SCOPE_KEY = (scope) => `leaderboard:${YEAR}:${scope}`;
 const OVERALL_KEY = `leaderboard:${YEAR}:overall`;
+const AURA_USER_KEY = (user) => `aura:${YEAR}:${user}`;     // per-user total
+const AURA_INDEX = `aura:${YEAR}:__index__`;                // list of users seen
 
-function read(key) {
-  try { return JSON.parse(localStorage.getItem(key) || "[]"); }
-  catch { return []; }
+function readJSON(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  catch { return fallback; }
 }
-
-function write(key, val) {
-  localStorage.setItem(key, JSON.stringify(val));
-}
-
-export function recordScore(scope, score, total) {
-  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-  const entry = {
-    user: currentUserName(),
-    score,
-    total,
-    pct,
-    date: new Date().toISOString()
-  };
-
-  // Per-scope board: keep best pct by user per day
-  const b = read(KEY(scope));
-  const next = upsertTop(b, entry);
-  write(KEY(scope), next);
-
-  // Recompute overall (avg of best scope pcts per user)
-  const overall = recomputeOverall();
-  write(OVERALL_KEY, overall);
-}
-
-export function getBoard(scope) {
-  return read(KEY(scope));
-}
-
-export function getOverall() {
-  return read(OVERALL_KEY);
-}
+function writeJSON(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 function currentUserName() {
   try {
@@ -56,17 +30,31 @@ function currentUserName() {
   return "Anon";
 }
 
-function upsertTop(list, entry) {
-  // Keep best by pct per (user, day)
+/* ------------ Quiz/Activity leaderboards (percent based) ------------ */
+export function recordScore(scope, score, total) {
+  const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+  const entry = { user: currentUserName(), score, total, pct, date: new Date().toISOString() };
+
+  const list = readJSON(SCOPE_KEY(scope), []);
   const day = entry.date.slice(0,10);
-  const key = (e) => `${e.user}:${day}`;
-  const map = new Map(list.map(e => [key(e), e]));
-  const k = key(entry);
+  const keyOf = (e) => `${e.user}:${day}`;
+  const map = new Map(list.map(e => [keyOf(e), e]));
+  const k = keyOf(entry);
   const prev = map.get(k);
   if (!prev || entry.pct > prev.pct) map.set(k, entry);
   const arr = Array.from(map.values());
   arr.sort((a,b) => b.pct - a.pct || a.user.localeCompare(b.user));
-  return arr.slice(0, 100);
+  writeJSON(SCOPE_KEY(scope), arr.slice(0, 100));
+
+  // recompute overall
+  writeJSON(OVERALL_KEY, recomputeOverall());
+}
+
+export function getBoard(scope) {
+  return readJSON(SCOPE_KEY(scope), []);
+}
+export function getOverall() {
+  return readJSON(OVERALL_KEY, []);
 }
 
 function recomputeOverall() {
@@ -76,7 +64,7 @@ function recomputeOverall() {
   const bestByUserScope = {};
   for (const k of keys) {
     const scope = k.split(":").pop();
-    const board = read(k);
+    const board = readJSON(k, []);
     for (const row of board) {
       const u = row.user;
       bestByUserScope[u] = bestByUserScope[u] || {};
@@ -90,4 +78,30 @@ function recomputeOverall() {
   });
   out.sort((a,b) => b.pct - a.pct || a.user.localeCompare(b.user));
   return out.slice(0, 100);
+}
+
+/* --------------------------- Aura points ---------------------------- */
+export function addAuraPoints(amount) {
+  const user = currentUserName();
+  const key = AURA_USER_KEY(user);
+  const idxKey = AURA_INDEX;
+
+  const cur = Number(readJSON(key, 0));
+  const next = Math.max(0, cur + Number(amount || 0));
+  writeJSON(key, next);
+
+  // keep an index of users for the board
+  const idx = new Set(readJSON(idxKey, []));
+  idx.add(user);
+  writeJSON(idxKey, Array.from(idx));
+}
+
+export function getAuraBoard() {
+  const idx = readJSON(AURA_INDEX, []);
+  const rows = idx.map(user => {
+    const total = Number(readJSON(AURA_USER_KEY(user), 0));
+    return { user, score: total, total: 0, pct: null, date: new Date().toISOString() };
+  });
+  rows.sort((a,b) => b.score - a.score || a.user.localeCompare(b.user));
+  return rows.slice(0, 10);
 }
