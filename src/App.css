@@ -16,6 +16,21 @@ import { getLeaderboard, submitScore, getOverall } from "./LeaderboardService";
 import { getCurrentUser, logout as doLogout } from "./Accounts";
 import UrgencyTraining from "./UrgencyTraining";
 
+
+:root {
+  /* Power Brand Blues */
+  --power-blue: #1e5eff;        /* primary */
+  --power-blue-soft: #3f7cff;   /* hover */
+  --power-blue-dark: #0b2a5a;   /* deep panels */
+  --power-blue-glow: rgba(30, 94, 255, 0.45);
+
+  /* Neutrals */
+  --panel-dark: #0f1422;
+  --panel-darker: #0a0f1c;
+  --text-main: #eaf0ff;
+  --text-muted: #9fb3ff;
+}
+
 /* ---------------- Teleprompter: Reader (auto-scroll) ---------------- */
 function TeleprompterReader({ lines }) {
   const viewportRef = useRef(null);
@@ -385,4 +400,31 @@ export default function App() {
       </div>
     </AuthGate>
   );
-}
+
+/* =========================
+   REMOVE GREEN — FORCE POWER BLUE
+   ========================= */
+
+   .button,
+   .pill,
+   .notice,
+   .mode-tabbar {
+     background-color: var(--power-blue-dark) !important;
+     border-color: var(--power-blue) !important;
+     color: var(--text-main) !important;
+   }
+   
+   .button:hover {
+     background-color: var(--power-blue) !important;
+     box-shadow: 0 0 18px var(--power-blue-glow);
+   }
+   
+   .notice {
+     background: linear-gradient(
+       180deg,
+       rgba(30, 94, 255, 0.35),
+       rgba(30, 94, 255, 0.15)
+     ) !important;
+   }
+   
+  }

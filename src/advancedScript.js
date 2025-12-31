@@ -4,7 +4,7 @@ export const advGraph = {
     id: "open",
     checkpoint: true,
     prompt: "I'm in the middle of something.",
-    agent: "Totally fair—I'm quick. We’re doing free exterior checks while routed here so you know what's urgent vs. later.",
+    agent: "Totally fair—I'm quick. We are doing free exterior checks while routed here so you know what's urgent vs. later.",
     choices: [
       {
         label: "Acknowledge & pivot: 'Are you typically around later today or is tomorrow better?'",
@@ -30,7 +30,7 @@ export const advGraph = {
   ramble: {
     id: "ramble",
     checkpoint: true,
-    prompt: "That sounds like a lot—I really don’t have time.",
+    prompt: "That sounds like a lot—I really dont have time.",
     agent: "Totally. The check is fast, and we line it up when crews are already close—saves both of us time.",
     choices: [
       {
@@ -51,8 +51,8 @@ export const advGraph = {
   grid: {
     id: "grid",
     checkpoint: true,
-    prompt: "If it’s quick, maybe. What do you have?",
-    agent: "We’ve got a couple windows while we’re routed here. Do your evenings or late afternoons work better?",
+    prompt: "If its quick, maybe. What do you have?",
+    agent: "Weve got a couple windows while were routed here. Do your evenings or late afternoons work better?",
     choices: [
       {
         label: "Offer two slots (e.g., 'Today 6:10 or tomorrow 5:40').",
@@ -73,7 +73,7 @@ export const advGraph = {
     id: "confirm",
     checkpoint: true,
     prompt: "Tomorrow 5:40 could work.",
-    agent: "Perfect. We’ll do a full exterior look, photos, and you’ll have a same-day game plan.",
+    agent: "Perfect. Well do a full exterior look, photos, and youll have a same-day game plan.",
     choices: [
       {
         label: "Finalize: 'That locks you into the current route—best contact name & number?'",
@@ -82,7 +82,7 @@ export const advGraph = {
         explain: "Closes decisively and sets expectation/benefit."
       },
       {
-        label: "Ask if they’re sure.",
+        label: "Ask if theyre sure.",
         next: "wrap",
         weight: 2,
         explain: "Raises doubt at the goal line."
