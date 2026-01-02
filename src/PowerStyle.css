@@ -1,274 +1,46 @@
-/* ---------- Theme tokens ---------- */
-:root {
-  --bg-1: #0b1220;
-  --bg-2: #0a0f1a;
-
-  --card: rgba(255,255,255,0.92);
-  --card-2: rgba(255,255,255,0.97);
-  --text: #0b1020;
-  --muted: rgba(0,0,0,0.55);
-
-  --border: rgba(0,0,0,0.12);
-  --border-2: rgba(0,0,0,0.08);
-
-  --accent-500: #3b82f6;
-  --accent-600: #2563eb;
-  --accent-700: #1d4ed8;
-
-  --danger-500: #ef4444;
-  --danger-600: #dc2626;
-
-  --success-600: #16a34a;
-  --warn-600: #f59e0b;
-
-  --ring: rgba(37, 99, 235, 0.45);
-}
-
-/* Accent per mode */
-body[data-accent="teleprompter"] {
-  --accent-500: #3b82f6;
-  --accent-600: #2563eb;
-  --accent-700: #1d4ed8;
-  --ring: rgba(37, 99, 235, 0.45);
-}
-body[data-accent="teleprompter-advanced"] {
-  --accent-500: #a855f7;
-  --accent-600: #7c3aed;
-  --accent-700: #6d28d9;
-  --ring: rgba(124, 58, 237, 0.45);
-}
-body[data-accent="quiz-script"] {
-  --accent-500: #eab308;
-  --accent-600: #ca8a04;
-  --accent-700: #a16207;
-  --ring: rgba(234, 179, 8, 0.45);
-}
-body[data-accent="quiz-urgency"] {
-  --accent-500: #fb7185;
-  --accent-600: #f43f5e;
-  --accent-700: #e11d48;
-  --ring: rgba(244, 63, 94, 0.45);
-}
-body[data-accent="flashcards"] {
-  --accent-500: #22c55e;
-  --accent-600: #16a34a;
-  --accent-700: #15803d;
-  --ring: rgba(34, 197, 94, 0.45);
-}
-
-/* Base */
-html, body { height: 100%; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:
-    radial-gradient(1200px 650px at 10% 10%, rgba(37,99,235,0.25), transparent 60%),
-    radial-gradient(900px 650px at 90% 15%, rgba(59,130,246,0.16), transparent 60%),
-    linear-gradient(180deg, var(--bg-1), var(--bg-2));
-  color: #f8fafc;
-}
-
-/* App layout */
-.app { min-height: 100vh; }
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: rgba(10, 15, 26, 0.82);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-
-.brand .title {
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  font-size: 14px;
-}
-.brand .subtitle {
-  opacity: 0.65;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.top-actions { display: flex; align-items: center; gap: 10px; }
-.userpill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-}
-.userpill .dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #fff, var(--accent-600));
-  box-shadow: 0 0 18px rgba(37,99,235,0.35);
-}
-.userpill .name { font-weight: 800; font-size: 13px; }
-
-.tabs {
-  max-width: 1100px;
-  margin: 14px auto 16px;
-  padding: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.06);
-  box-shadow: 0 16px 36px rgba(0,0,0,0.25);
-}
-
-.tab {
-  cursor: pointer;
-  padding: 10px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.05);
-  color: #f8fafc;
-  font-weight: 800;
-  font-size: 13px;
-  transition: transform 0.08s ease, background 0.2s ease, border-color 0.2s ease;
-}
-.tab:hover { transform: translateY(-1px); background: rgba(255,255,255,0.08); }
-.tab.active {
-  border-color: rgba(255,255,255,0.25);
-  background: linear-gradient(180deg, rgba(37,99,235,0.28), rgba(59,130,246,0.14));
-}
-
-.content { max-width: 1100px; margin: 0 auto; padding: 18px 16px 34px; }
-
-.card {
-  max-width: 1100px;
-  margin: 0 auto 18px;
-  padding: 14px 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.92);
-  color: var(--text);
-  box-shadow: 0 16px 36px rgba(0,0,0,0.25);
-}
-
-.mode-tabbar {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border-2);
-  background: rgba(0,0,0,0.03);
-}
-
-.button {
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text);
-  font-weight: 900;
-  padding: 10px 12px;
-  border-radius: 14px;
-  transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(0,0,0,0.10); }
-.button.secondary { background: rgba(0,0,0,0.03); }
-
-.notice {
-  max-width: 1100px;
-  margin: 0 auto 16px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: linear-gradient(180deg, rgba(37,99,235,0.18), rgba(59,130,246,0.10));
-  color: #f8fafc;
-  font-weight: 800;
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.slider {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.03);
-}
-.slider .label { opacity: 0.8; font-weight: 800; font-size: 12px; }
-.slider .value { font-weight: 900; font-size: 12px; opacity: 0.9; }
-
-input[type="range"] { width: 160px; }
-input, select {
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text);
-  padding: 8px 10px;
-  outline: none;
-}
-
-/* Teleprompter (alternate classes already used elsewhere) */
-.tele-viewport {
-  position: relative;
-  height: 300px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,.05) inset;
-}
-.tele-content {
-  will-change: transform;
-  padding: 20px 16px 100px;
-  font-size: 22px;
-  line-height: 1.6;
-}
-.tele-fade-top, .tele-fade-btm {
-  position: absolute;
-  left: 0; right: 0;
-  height: 28px;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,0));
-}
-.tele-fade-top { top: 0; }
-.tele-fade-btm { bottom: 0; transform: rotate(180deg); }
-
 /* ---------------------------
    FIX: App.js TeleprompterReader uses className="teleBox"
    This makes it scrollable + preserves line breaks + fixes Play/Follow.
    --------------------------- */
-.teleBox {
-  position: relative;
-  height: 300px;
-  overflow-y: auto;
-  overflow-x: hidden;
-
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
-  color: #111;
-
-  box-shadow: 0 1px 4px rgba(0,0,0,.05) inset;
-
-  padding: 20px 16px 100px;
-
-  /* This is the line-break fix */
-  white-space: pre-wrap;
-
-  /* Makes it readable */
-  line-height: 1.7;
-
+   .teleBox {
+    position: relative;
+    height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    color: #111;
+  
+    box-shadow: 0 1px 4px rgba(0,0,0,.05) inset;
+  
+    padding: 20px 16px 100px;
+  
+    /* This is the line-break fix */
+    white-space: pre-wrap;
+  
+    /* Makes it readable */
+    line-height: 1.7;
+  }
+  
+  /* =============================
+     Teleprompter line highlighting
+     ============================= */
+  .teleLine{
+    padding: 6px 0;
+    transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+    border-radius: 10px;
+  }
+  
+  .teleLine.active{
+    background: rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18) inset;
+    transform: translateX(2px);
+  }
+  
+  /* Blank lines from the script */
+  .teleGap{
+    height: 18px;
+  }
+  
