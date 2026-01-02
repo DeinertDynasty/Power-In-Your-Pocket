@@ -9,6 +9,8 @@ import FlashCardDice from "./FlashCardDice";
 import UrgencyTraining from "./UrgencyTraining";
 import LeaderboardsPage from "./LeaderboardsPage";
 
+import ErrorBoundary from "./ErrorBoundary";
+
 import { recordScore, getBoard, getOverall, getAuraBoard } from "./LeaderboardService";
 import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from "./Accounts";
 
@@ -34,352 +36,184 @@ function TeleprompterReader({
   const needsScrollRef = useRef(false);
 
   const [running, setRunning] = useState(false);
-  const [started, setStarted] = useState(false);
   const [speed, setSpeed] = useState(defaultSpeed);
-  const [fontSize, setFontSize] = useState(defaultFont);
+  const [font, setFont] = useState(defaultFont);
   const [mirror, setMirror] = useState(defaultMirror);
-  const [offset, setOffset] = useState(0);
-  const [countdown, setCountdown] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const [needsScroll, setNeedsScroll] = useState(false);
 
-  const [targetWPM, setTargetWPM] = useState(140);
-
-  const wordCount = useMemo(() => {
-    const w = (text || "")
-      .trim()
-      .replace(/\s+/g, " ")
-      .split(" ")
-      .filter(Boolean);
-    return w.length;
-  }, [text]);
-
-  const estSeconds = useMemo(() => {
-    const wpm = Math.max(60, Number(targetWPM) || 140);
-    return Math.round((wordCount / wpm) * 60);
-  }, [wordCount, targetWPM]);
-
-  const computeMax = () => {
-    const el = boxRef.current;
-    if (!el) return 1;
-    const max = Math.max(1, el.scrollHeight - el.clientHeight);
-    maxRef.current = max;
-
-    const shouldScroll = max > 5;
-    needsScrollRef.current = shouldScroll;
-    setNeedsScroll(shouldScroll);
-
-    return max;
-  };
-
-  useEffect(() => {
-    const el = boxRef.current;
-    if (el) el.scrollTop = 0;
-    setOffset(0);
+  const stop = () => {
     setRunning(false);
-    setStarted(false);
-    setCountdown(0);
-    setElapsed(0);
-    setTimeout(computeMax, 50);
-  }, [text]);
-
-  useEffect(() => {
-    const onResize = () => computeMax();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    lastTSRef.current = 0;
+    if (tickTimerRef.current) {
+      clearTimeout(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+  };
 
   const step = (ts) => {
     if (!running) return;
-    const el = boxRef.current;
-    if (!el) return;
+
+    const box = boxRef.current;
+    if (!box) return;
 
     if (!lastTSRef.current) lastTSRef.current = ts;
-    const dt = (ts - lastTSRef.current) / 1000;
+    const dt = ts - lastTSRef.current;
     lastTSRef.current = ts;
 
-    setElapsed((prev) => prev + dt);
+    const pxPerSec = speed;
+    const dy = (pxPerSec * dt) / 1000;
 
-    if (needsScrollRef.current) {
-      const max = maxRef.current || computeMax();
-      const next = Math.min(max, el.scrollTop + speed * dt);
-      el.scrollTop = next;
-      setOffset(next);
+    const next = box.scrollTop + dy;
+    box.scrollTop = next;
 
-      if (next >= max - 1) {
-        setRunning(false);
-      }
+    const atEnd = Math.ceil(box.scrollTop + box.clientHeight) >= maxRef.current - 2;
+    if (atEnd) {
+      stop();
+      return;
     }
 
     rafRef.current = requestAnimationFrame(step);
   };
 
   useEffect(() => {
-    if (running) {
-      lastTSRef.current = 0;
-      rafRef.current = requestAnimationFrame(step);
-    }
+    const box = boxRef.current;
+    if (!box) return;
+
+    const recompute = () => {
+      maxRef.current = box.scrollHeight;
+      const canScroll = box.scrollHeight > box.clientHeight + 2;
+      needsScrollRef.current = canScroll;
+    };
+
+    recompute();
+    const id = setTimeout(recompute, 50);
+    return () => clearTimeout(id);
+  }, [text, font]);
+
+  useEffect(() => {
+    if (!running) return;
+    rafRef.current = requestAnimationFrame(step);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, speed]);
 
-  const handlePlay = () => {
-    computeMax();
-    setStarted(true);
+  const toggle = () => {
+    const box = boxRef.current;
+    if (!box) return;
 
-    const shouldScroll = needsScrollRef.current;
+    if (!needsScrollRef.current) return;
 
-    setCountdown(3);
-    if (tickTimerRef.current) clearInterval(tickTimerRef.current);
-
-    tickTimerRef.current = setInterval(() => {
-      setCountdown((c) => {
-        const next = c - 1;
-        if (next <= 0) {
-          clearInterval(tickTimerRef.current);
-          tickTimerRef.current = null;
-          setRunning(true);
-
-          if (!shouldScroll) {
-            // static mode – still counts time
-          }
-          return 0;
-        }
-        return next;
-      });
-    }, 1000);
-  };
-
-  const handlePause = () => {
-    setRunning(false);
-    if (tickTimerRef.current) {
-      clearInterval(tickTimerRef.current);
-      tickTimerRef.current = null;
+    if (running) stop();
+    else {
+      lastTSRef.current = 0;
+      setRunning(true);
     }
-    setCountdown(0);
   };
 
-  const handleReset = () => {
-    handlePause();
-    const el = boxRef.current;
-    if (el) el.scrollTop = 0;
-    setOffset(0);
-    setStarted(false);
-    setElapsed(0);
-    setTimeout(computeMax, 50);
+  const reset = () => {
+    stop();
+    if (boxRef.current) boxRef.current.scrollTop = 0;
   };
 
-  const saveSessionTime = () => {
-    if (onSaveSession) onSaveSession(elapsed);
+  const save = () => {
+    if (onSaveSession) onSaveSession({ text, speed, font, mirror });
   };
 
   return (
-    <div className="card" style={{ textAlign: "left", maxWidth: 1100 }}>
+    <div className="card">
       <div className="mode-tabbar">Teleprompter</div>
 
-      <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-        <button className="button" onClick={handlePlay} disabled={running || countdown > 0}>
-          Play
+      <div className="controls">
+        <button className="button" onClick={toggle}>
+          {running ? "Stop" : "Play"}
         </button>
-        <button className="button" onClick={handlePause} disabled={!running && countdown <= 0}>
-          Pause
-        </button>
-        <button className="button" onClick={handleReset}>
+        <button className="button secondary" onClick={reset}>
           Reset
         </button>
-
-        <button className="button" onClick={saveSessionTime} disabled={!started}>
-          Save Time
+        <button className="button secondary" onClick={() => setMirror((m) => !m)}>
+          Mirror: {mirror ? "On" : "Off"}
         </button>
 
-        <div className="pill">
-          {countdown > 0 ? `Starting in ${countdown}…` : running ? "Playing" : started ? "Paused" : "Ready"}
-        </div>
-
-        <div className="pill">
-          Time: {Math.floor(elapsed)}s / Est: {estSeconds}s ({wordCount} words)
-        </div>
-      </div>
-
-      <div className="row" style={{ gap: 16, flexWrap: "wrap", marginTop: 10 }}>
-        <label className="pill">
-          Speed
+        <div className="slider">
+          <span className="label">Speed</span>
           <input
             type="range"
             min={10}
             max={200}
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
-            style={{ marginLeft: 10 }}
           />
-          <span style={{ marginLeft: 8 }}>{speed}</span>
-        </label>
+          <span className="value">{speed}</span>
+        </div>
 
-        <label className="pill">
-          Font
+        <div className="slider">
+          <span className="label">Font</span>
           <input
             type="range"
             min={18}
-            max={64}
-            value={fontSize}
-            onChange={(e) => setFontSize(Number(e.target.value))}
-            style={{ marginLeft: 10 }}
+            max={60}
+            value={font}
+            onChange={(e) => setFont(Number(e.target.value))}
           />
-          <span style={{ marginLeft: 8 }}>{fontSize}px</span>
-        </label>
+          <span className="value">{font}px</span>
+        </div>
 
-        <label className="pill">
-          WPM
-          <input
-            type="number"
-            min={60}
-            max={260}
-            value={targetWPM}
-            onChange={(e) => setTargetWPM(Number(e.target.value))}
-            style={{ marginLeft: 10, width: 80 }}
-          />
-        </label>
-
-        <label className="pill">
-          Mirror
-          <input
-            type="checkbox"
-            checked={mirror}
-            onChange={(e) => setMirror(e.target.checked)}
-            style={{ marginLeft: 10 }}
-          />
-        </label>
-
-        <div className="pill">{needsScroll ? "Scrolling mode" : "Static mode (fits on screen)"}</div>
+        <button className="button secondary" onClick={save}>
+          Save Session
+        </button>
       </div>
 
       <div
         ref={boxRef}
-        className="tele-box"
+        className="teleBox"
         style={{
-          marginTop: 14,
-          height: 360,
-          overflowY: "auto",
-          borderRadius: 12,
-          padding: 18,
-          background: "#0f1116",
-          color: "#eaeef7",
+          fontSize: font,
           transform: mirror ? "scaleX(-1)" : "none"
         }}
       >
-        <div style={{ transform: mirror ? "scaleX(-1)" : "none" }}>
-          <pre style={{ margin: 0, fontSize, whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{text}</pre>
-        </div>
-      </div>
-
-      <div className="small" style={{ marginTop: 10, opacity: 0.8 }}>
-        Scroll offset: {Math.round(offset)}px
+        {text}
       </div>
     </div>
   );
 }
 
 /* =========================================================
-   Teleprompter Studio (script picker + line slicing)
+   Teleprompter Studio (multi script blocks)
    ========================================================= */
 
 function TeleprompterStudio({ onSaveSession }) {
-  const SCRIPT_SETS = useMemo(
+  const sections = useMemo(
     () => [
-      { key: "Initial_Scripting", label: "Initial_Scripting", lines: Initial_Scripting },
-      { key: "Buying_Questions", label: "Buying_Questions", lines: Buying_Questions },
-      { key: "Objection", label: "Objection", lines: Objection },
-      { key: "Procrastinations", label: "Procrastinations", lines: Procrastinations }
+      { title: "Initial Scripting", arr: Initial_Scripting },
+      { title: "Buying Questions", arr: Buying_Questions },
+      { title: "Procrastinations", arr: Procrastinations },
+      { title: "Objections", arr: Objection }
     ],
     []
   );
 
-  const [choice, setChoice] = useState(SCRIPT_SETS[0].key);
-  const active = SCRIPT_SETS.find((s) => s.key === choice) || SCRIPT_SETS[0];
-  const totalLines = active.lines?.length || 0;
-
-  const [startLine, setStartLine] = useState(1);
-  const [endLine, setEndLine] = useState(Math.max(1, totalLines));
-
-  // Reset range on script change so short sets don't look blank
-  useEffect(() => {
-    setStartLine(1);
-    setEndLine(Math.max(1, active.lines?.length || 1));
-  }, [choice]); // eslint-disable-line
-
-  const clampedStart = Math.max(1, Math.min(startLine, endLine));
-  const clampedEnd = Math.max(clampedStart, Math.min(endLine, totalLines));
-
-  const sliced = useMemo(
-    () => (active.lines || []).slice(clampedStart - 1, clampedEnd),
-    [active, clampedStart, clampedEnd]
-  );
-
-  const teleText = useMemo(() => (sliced || []).join("\n\n"), [sliced]);
-
-  const resetRange = () => {
-    setStartLine(1);
-    setEndLine(Math.max(1, totalLines));
-  };
-
-  const applyFullScriptPreset = () => {
-    setStartLine(1);
-    setEndLine(Math.max(1, totalLines));
-  };
+  const [active, setActive] = useState(0);
+  const activeText = (sections[active]?.arr || []).join("\n\n");
 
   return (
-    <div className="card" style={{ textAlign: "left", maxWidth: 1100 }}>
-      <div className="mode-tabbar">Teleprompter Studio</div>
-
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr 1fr", marginBottom: 10 }}>
-        <div>
-          <label className="category-label">Script</label>
-          <select className="category-picker" value={choice} onChange={(e) => setChoice(e.target.value)}>
-            {SCRIPT_SETS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="category-label">Start line</label>
-          <input
-            type="number"
-            min={1}
-            max={Math.max(1, totalLines)}
-            value={clampedStart}
-            onChange={(e) => setStartLine(Number(e.target.value) || 1)}
-          />
-        </div>
-        <div>
-          <label className="category-label">End line</label>
-          <input
-            type="number"
-            min={1}
-            max={Math.max(1, totalLines)}
-            value={clampedEnd}
-            onChange={(e) => setEndLine(Number(e.target.value) || totalLines)}
-          />
-        </div>
+    <div>
+      <div className="tabs" style={{ marginBottom: 12 }}>
+        {sections.map((s, i) => (
+          <button
+            key={s.title}
+            className={`tab ${i === active ? "active" : ""}`}
+            onClick={() => setActive(i)}
+          >
+            {s.title}
+          </button>
+        ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-        <button className="button" type="button" onClick={resetRange}>
-          Reset Range
-        </button>
-        <button className="button" type="button" onClick={applyFullScriptPreset}>
-          Full Script
-        </button>
-      </div>
-
-      <div className="small" style={{ color: "#666", marginBottom: 8 }}>
-        Using lines {clampedStart}–{clampedEnd} of {totalLines} ({sliced.length} lines)
-      </div>
-
-      <TeleprompterReader text={teleText} onSaveSession={onSaveSession} />
+      <TeleprompterReader text={activeText} onSaveSession={onSaveSession} />
     </div>
   );
 }
@@ -394,34 +228,50 @@ function App() {
   const [mode, setMode] = useState("teleprompter");
   const [saveNotice, setSaveNotice] = useState("");
 
+  // Apply accent theme per mode (PowerStyle.css uses body[data-accent="..."])
+  useEffect(() => {
+    const map = {
+      teleprompter: "teleprompter",
+      teleStudio: "teleprompter",
+      flashcards: "flashcards",
+      dice: "flashcards",
+      quizzes: "quiz-script",
+      urgency: "urgency-training",
+      leaderboards: "teleprompter"
+    };
+    document.body.dataset.accent = map[mode] || "teleprompter";
+  }, [mode]);
+
   const [boards, setBoards] = useState({
     overall: [],
-    teleBasic: [],
-    teleAdv: [],
-    quizScript: [],
-    quizUrgency: [],
+    teleprompterTime: [],
+    teleprompterAccuracy: [],
+    quizAccuracy: [],
+    urgency: [],
     aura: []
   });
 
-  const refreshBoards = async () => {
+  const refreshBoards = () => {
     setBoards({
       overall: getOverall(),
-      teleBasic: getBoard("teleprompter-time"),
-      teleAdv: getBoard("teleprompter-advanced"),
-      quizScript: getBoard("quiz-script"),
-      quizUrgency: getBoard("quiz-urgency"),
+      teleprompterTime: getBoard("teleprompter-time"),
+      teleprompterAccuracy: getBoard("teleprompter-accuracy"),
+      quizAccuracy: getBoard("quiz-accuracy"),
+      urgency: getBoard("urgency"),
       aura: getAuraBoard()
     });
   };
 
   useEffect(() => {
     refreshBoards();
-    // eslint-disable-next-line
   }, []);
 
-  const handleTeleSave = (seconds) => {
-    const nickname = user?.displayName || user?.username || "Anon";
-    const capped = Math.max(0, Math.min(3600, Number(seconds) || 0));
+  const nickname = user?.displayName || user?.username || "Anon";
+
+  const handleTeleSave = ({ speed, font, mirror }) => {
+    // Example: treat as a "time" record placeholder (kept as original pattern)
+    // You can wire this to real tracking later.
+    const capped = Math.max(0, Math.min(3600, Number(speed || 0)));
     recordScore("teleprompter-time", capped, 3600);
     refreshBoards();
     setSaveNotice(`Saved ${Math.round(capped)}s for ${nickname}`);
@@ -433,133 +283,12 @@ function App() {
     window.location.reload();
   };
 
-  const storedKey = readUserKey();
-  const [key, setKey] = useState(storedKey || "");
+  // FIX: key storage must be per-user & must pass Accounts.js params
+  const username = user?.username || "anon";
+  const [key, setKey] = useState(() => readUserKey(username, "userKey", ""));
 
   const saveKey = () => {
-    writeUserKey(key);
+    writeUserKey(username, "userKey", key);
     setSaveNotice("Saved key");
-    setTimeout(() => setSaveNotice(""), 2000);
-  };
+    setTimeout(() => s
 
-  return (
-    <AuthGate>
-      <div className="app">
-        <div className="topbar">
-          <div className="brand">
-            <div className="title">POWER IN YOUR POCKET</div>
-            <div className="subtitle">Training Tools</div>
-          </div>
-
-          <div className="top-actions">
-            <div className="pill">
-              Logged in: <strong>{user?.displayName || user?.username || "User"}</strong>
-            </div>
-
-            <button className="button" onClick={logout}>
-              Logout
-            </button>
-          </div>
-        </div>
-
-        {/* ✅ Blue tab bar background (inline so it won’t depend on CSS and won’t error) */}
-        <div
-          className="tabs"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(30, 94, 255, 0.30), rgba(0, 170, 255, 0.14))",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 16,
-            padding: 12,
-            maxWidth: 1100,
-            margin: "12px auto 18px",
-            boxShadow: "0 16px 36px rgba(0,0,0,0.25)"
-          }}
-        >
-          <button className={`tab ${mode === "teleprompter" ? "active" : ""}`} onClick={() => setMode("teleprompter")}>
-            📜 Teleprompter
-          </button>
-
-          <button className={`tab ${mode === "teleStudio" ? "active" : ""}`} onClick={() => setMode("teleStudio")}>
-            🎛️ Studio
-          </button>
-
-          <button className={`tab ${mode === "flashcards" ? "active" : ""}`} onClick={() => setMode("flashcards")}>
-            🧠 Flashcards
-          </button>
-
-          <button className={`tab ${mode === "dice" ? "active" : ""}`} onClick={() => setMode("dice")}>
-            🎲 Dice
-          </button>
-
-          <button className={`tab ${mode === "quizzes" ? "active" : ""}`} onClick={() => setMode("quizzes")}>
-            ✅ Quizzes
-          </button>
-
-          <button className={`tab ${mode === "urgency" ? "active" : ""}`} onClick={() => setMode("urgency")}>
-            ⚡ Urgency
-          </button>
-
-          <button
-            className={`tab ${mode === "leaderboards" ? "active" : ""}`}
-            onClick={() => setMode("leaderboards")}
-          >
-            🏆 Leaderboards
-          </button>
-        </div>
-
-        {saveNotice ? <div className="notice">{saveNotice}</div> : null}
-
-        <div className="content">
-          {mode === "teleprompter" && (
-            <TeleprompterReader text={(Initial_Scripting || []).join("\n\n")} onSaveSession={handleTeleSave} />
-          )}
-
-          {mode === "teleStudio" && <TeleprompterStudio onSaveSession={handleTeleSave} />}
-
-          {mode === "flashcards" && <FlashcardsStudy />}
-
-          {mode === "dice" && <FlashCardDice />}
-
-          {mode === "quizzes" && <MultiQuizTabs />}
-
-          {mode === "urgency" && <UrgencyTraining />}
-
-          {mode === "leaderboards" && <LeaderboardsPage boards={boards} />}
-        </div>
-
-        <div className="card" style={{ maxWidth: 1100, textAlign: "left" }}>
-          <div className="mode-tabbar">Settings</div>
-          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-            <label className="pill">
-              User Key:
-              <input
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder="Optional key"
-                style={{ marginLeft: 10, width: 280 }}
-              />
-            </label>
-            <button className="button" onClick={saveKey}>
-              Save Key
-            </button>
-          </div>
-
-          <div style={{ marginTop: 14 }}>
-            <Leaderboard title="Overall" rows={boards.overall} />
-            <Leaderboard title="Teleprompter Time" rows={boards.teleBasic} />
-            <Leaderboard title="Quiz Script" rows={boards.quizScript} />
-            <Leaderboard title="Quiz Urgency" rows={boards.quizUrgency} />
-            <Leaderboard title="Aura" rows={boards.aura} />
-          </div>
-
-          <div style={{ marginTop: 24, fontSize: 12, color: "#777" }}>
-            © {new Date().getFullYear()} Phoenix — Training tools for performance
-          </div>
-        </div>
-      </div>
-    </AuthGate>
-  );
-}
-
-export default App;
