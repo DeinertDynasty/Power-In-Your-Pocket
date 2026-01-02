@@ -271,4 +271,23 @@ input, select {
 
   /* Makes it readable */
   line-height: 1.7;
-}
+/* =============================
+   Teleprompter line highlighting
+   ============================= */
+   .teleLine{
+    padding: 6px 0;
+    transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+    border-radius: 10px;
+  }
+  
+  .teleLine.active{
+    background: rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18) inset;
+    transform: translateX(2px);
+  }
+  
+  /* Blank lines from the script */
+  .teleGap{
+    height: 18px;
+  }
+  
