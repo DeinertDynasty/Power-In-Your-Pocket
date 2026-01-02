@@ -9,10 +9,11 @@ import FlashCardDice from "./FlashCardDice";
 import UrgencyTraining from "./UrgencyTraining";
 import LeaderboardsPage from "./LeaderboardsPage";
 
-import ErrorBoundary from "./ErrorBoundary";
-
 import { recordScore, getBoard, getOverall, getAuraBoard } from "./LeaderboardService";
 import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from "./Accounts";
+
+// ✅ ADD: deck for Dice (and anywhere else you want it)
+import flashcards from "./flashcards";
 
 // Script arrays used by Teleprompter Studio
 import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from "./script";
@@ -53,7 +54,6 @@ function TeleprompterReader({
 
   const step = (ts) => {
     if (!running) return;
-
     const box = boxRef.current;
     if (!box) return;
 
@@ -104,7 +104,6 @@ function TeleprompterReader({
   const toggle = () => {
     const box = boxRef.current;
     if (!box) return;
-
     if (!needsScrollRef.current) return;
 
     if (running) stop();
@@ -228,7 +227,7 @@ function App() {
   const [mode, setMode] = useState("teleprompter");
   const [saveNotice, setSaveNotice] = useState("");
 
-  // Apply accent theme per mode (PowerStyle.css uses body[data-accent="..."])
+  // Apply accent theme per mode
   useEffect(() => {
     const map = {
       teleprompter: "teleprompter",
@@ -244,20 +243,20 @@ function App() {
 
   const [boards, setBoards] = useState({
     overall: [],
-    teleprompterTime: [],
-    teleprompterAccuracy: [],
-    quizAccuracy: [],
-    urgency: [],
+    teleBasic: [],
+    teleAdv: [],
+    quizScript: [],
+    quizUrgency: [],
     aura: []
   });
 
   const refreshBoards = () => {
     setBoards({
       overall: getOverall(),
-      teleprompterTime: getBoard("teleprompter-time"),
-      teleprompterAccuracy: getBoard("teleprompter-accuracy"),
-      quizAccuracy: getBoard("quiz-accuracy"),
-      urgency: getBoard("urgency"),
+      teleBasic: getBoard("teleprompter-time"),
+      teleAdv: getBoard("teleprompter-accuracy"),
+      quizScript: getBoard("quiz-script"),
+      quizUrgency: getBoard("quiz-urgency"),
       aura: getAuraBoard()
     });
   };
@@ -268,9 +267,7 @@ function App() {
 
   const nickname = user?.displayName || user?.username || "Anon";
 
-  const handleTeleSave = ({ speed, font, mirror }) => {
-    // Example: treat as a "time" record placeholder (kept as original pattern)
-    // You can wire this to real tracking later.
+  const handleTeleSave = ({ speed }) => {
     const capped = Math.max(0, Math.min(3600, Number(speed || 0)));
     recordScore("teleprompter-time", capped, 3600);
     refreshBoards();
@@ -283,12 +280,124 @@ function App() {
     window.location.reload();
   };
 
-  // FIX: key storage must be per-user & must pass Accounts.js params
   const username = user?.username || "anon";
   const [key, setKey] = useState(() => readUserKey(username, "userKey", ""));
 
   const saveKey = () => {
     writeUserKey(username, "userKey", key);
     setSaveNotice("Saved key");
-    setTimeout(() => s
+    setTimeout(() => setSaveNotice(""), 2000);
+  };
 
+  return (
+    <AuthGate>
+      <div className="app">
+        <div className="topbar">
+          <div className="brand">
+            <div className="title">POWER IN YOUR POCKET</div>
+            <div className="subtitle">Training Tools</div>
+          </div>
+
+          <div className="top-actions">
+            <div className="userpill">
+              <span className="dot" />
+              <span className="name">{nickname}</span>
+            </div>
+
+            <button className="button secondary" onClick={logout}>
+              Logout
+            </button>
+          </div>
+        </div>
+
+        <div className="tabs">
+          <button className={`tab ${mode === "teleprompter" ? "active" : ""}`} onClick={() => setMode("teleprompter")}>
+            📜 Teleprompter
+          </button>
+
+          <button className={`tab ${mode === "teleStudio" ? "active" : ""}`} onClick={() => setMode("teleStudio")}>
+            🎛️ Studio
+          </button>
+
+          <button className={`tab ${mode === "flashcards" ? "active" : ""}`} onClick={() => setMode("flashcards")}>
+            🧠 Flashcards
+          </button>
+
+          <button className={`tab ${mode === "dice" ? "active" : ""}`} onClick={() => setMode("dice")}>
+            🎲 Dice
+          </button>
+
+          <button className={`tab ${mode === "quizzes" ? "active" : ""}`} onClick={() => setMode("quizzes")}>
+            ✅ Quizzes
+          </button>
+
+          <button className={`tab ${mode === "urgency" ? "active" : ""}`} onClick={() => setMode("urgency")}>
+            ⚡ Urgency
+          </button>
+
+          <button
+            className={`tab ${mode === "leaderboards" ? "active" : ""}`}
+            onClick={() => setMode("leaderboards")}
+          >
+            🏆 Leaderboards
+          </button>
+        </div>
+
+        {saveNotice ? <div className="notice">{saveNotice}</div> : null}
+
+        <div className="content">
+          {mode === "teleprompter" && (
+            <TeleprompterReader text={(Initial_Scripting || []).join("\n\n")} onSaveSession={handleTeleSave} />
+          )}
+
+          {mode === "teleStudio" && <TeleprompterStudio onSaveSession={handleTeleSave} />}
+
+          {mode === "flashcards" && <FlashcardsStudy />}
+
+          {/* ✅ FIX: Pass the deck into Dice */}
+          {mode === "dice" && <FlashCardDice cards={flashcards} />}
+
+          {mode === "quizzes" && <MultiQuizTabs />}
+
+          {mode === "urgency" && <UrgencyTraining />}
+
+          {mode === "leaderboards" && <LeaderboardsPage boards={boards} onRefresh={refreshBoards} />}
+        </div>
+
+        <div className="card" style={{ maxWidth: 1100, margin: "0 auto 18px" }}>
+          <div className="mode-tabbar">Settings</div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ opacity: 0.9 }}>User Key</span>
+              <input
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder="Optional key"
+                style={{ marginLeft: 10, width: 280 }}
+              />
+            </label>
+            <button className="button" onClick={saveKey}>
+              Save Key
+            </button>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <Leaderboard title="Overall" scores={boards.overall} />
+            <Leaderboard title="Teleprompter (Basic)" scores={boards.teleBasic} />
+            <Leaderboard title="Teleprompter (Advanced)" scores={boards.teleAdv} />
+            <Leaderboard title="Quiz: Script" scores={boards.quizScript} />
+            <Leaderboard title="Quiz: Urgency" scores={boards.quizUrgency} />
+            <Leaderboard title="Aura (Top 10)" scores={boards.aura} />
+          </div>
+
+          <div style={{ marginTop: 24, fontSize: 12, color: "#777" }}>
+            © {new Date().getFullYear()} Phoenix — Training tools for performance
+          </div>
+        </div>
+      </div>
+    </AuthGate>
+  );
+}
+
+export default App;

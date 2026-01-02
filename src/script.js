@@ -25,7 +25,7 @@ export const Initial_Scripting = [
   "It’s guaranteed in writing for the future.",
 
   // Warm Up
-  "My name is Phoenix—what’s your name, by the way?",
+  "My name is _____ what’s your name, by the way?",
   "Pleasure to meet you.",
   "How long have you owned the home?",
   "Where are you from originally?",
