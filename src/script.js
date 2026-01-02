@@ -7,7 +7,7 @@ export const Initial_Scripting = [
   // The Appointment Process — Initial Pitch
   "Hello, how are you today?",
   "Sorry to bother you.",
-  "I’m Phoenix from Power Home Remodeling.",
+  "I’m ______ from Power Home Remodeling.",
   "We just finished a window installation in the neighborhood.",
   "I noticed you have similar aged windows to the ones we just replaced.",
   "While we’re in the neighborhood, we’re giving all of the neighbors a free estimate.",
