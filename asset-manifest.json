@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/Power-In-Your-Pocket/static/css/main.43d55505.css",
+    "main.css": "/Power-In-Your-Pocket/static/css/main.2cb286f4.css",
     "main.js": "/Power-In-Your-Pocket/static/js/main.5ebdb42e.js",
     "static/js/453.a1501a38.chunk.js": "/Power-In-Your-Pocket/static/js/453.a1501a38.chunk.js",
     "index.html": "/Power-In-Your-Pocket/index.html",
-    "main.43d55505.css.map": "/Power-In-Your-Pocket/static/css/main.43d55505.css.map",
+    "main.2cb286f4.css.map": "/Power-In-Your-Pocket/static/css/main.2cb286f4.css.map",
     "main.5ebdb42e.js.map": "/Power-In-Your-Pocket/static/js/main.5ebdb42e.js.map",
     "453.a1501a38.chunk.js.map": "/Power-In-Your-Pocket/static/js/453.a1501a38.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.43d55505.css",
+    "static/css/main.2cb286f4.css",
     "static/js/main.5ebdb42e.js"
   ]
 }
