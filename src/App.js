@@ -22,8 +22,8 @@ import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from
 
 const FEATURE_ACCESS = {
   urgency: new Set([
-    "phoenix" // ✅ add more usernames here (lowercase)
-    // "ragincagin",
+   // "phoenix" // ✅ add more usernames here (lowercase) !!!!!!!!!!!!!!!!
+    "ragincagin",
     // "trainee02",
   ])
 };
