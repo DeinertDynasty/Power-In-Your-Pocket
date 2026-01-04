@@ -11,7 +11,7 @@ const USERS = [
   { username: "trainee07", password: "Route#07", displayName: "Trainee 07" },
   { username: "trainee08", password: "Route#08", displayName: "Trainee 08" },
   { username: "trainee09", password: "Route#09", displayName: "Trainee 09" },
-  { username: "trainee10", password: "Route#10", displayName: "Trainee 10" },
+  { username: "Dylan", password: "Power26", displayName: "Dylan_S" },
   { username: "Phoenix", password: "Power25", displayName: "DevTeam" },
 ];
 
