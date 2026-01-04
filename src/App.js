@@ -15,21 +15,7 @@ import { getCurrentUser, logout as doLogout, readUserKey, writeUserKey } from ".
 // Script arrays used by Teleprompter Studio
 import { Buying_Questions, Procrastinations, Initial_Scripting, Objection } from "./script";
 
-/* =========================================================
-   Feature Access Control (client-side beta gating)
-   - usernames must match Accounts.js usernames (case-insensitive)
-   ========================================================= */
 
-const FEATURE_ACCESS = {
-  urgency: new Set([
-   //  // ✅ add more usernames here (lowercase) !!!!!!!!!!!!!!!!
-    "trainee03",
-    "Phoenix",
-    "PhoenixP",
-    "Dylan",
-    // "trainee02",
-  ])
-};
 
 function canAccess(feature, username) {
   const set = FEATURE_ACCESS[feature];
