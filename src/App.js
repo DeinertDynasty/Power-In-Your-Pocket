@@ -24,9 +24,9 @@ const FEATURE_ACCESS = {
   urgency: new Set([
    //  // ✅ add more usernames here (lowercase) !!!!!!!!!!!!!!!!
     "trainee03",
-    "Phoenix"
-    "PhoenixP"
-    "Dylan"
+    "Phoenix",
+    "PhoenixP",
+    "Dylan",
     // "trainee02",
   ])
 };
