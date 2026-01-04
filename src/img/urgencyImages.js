@@ -19,7 +19,6 @@ import projectedWindows from "./urgency/projected windows.jpg";
 import casementWindows from "./urgency/casement_Windows.jpg";
 import awningWindow from "./urgency/awning window.jpg";
 import hopperWindow from "./urgency/hopperwindow.jpg";
-import fixedWindow from "./urgency/fixed window.jpg"; // only if exists
 import bowWindow from "./urgency/bow window.jpg";
 import bayWindow from "./urgency/bay window.jpg";
 import pivotWindow from "./urgency/Pivot.png";
@@ -86,7 +85,6 @@ const urgencyImages = {
   casementWindows,
   awningWindow,
   hopperWindow,
-  fixedWindow,
   bowWindow,
   bayWindow,
   pivotWindow,
@@ -136,3 +134,4 @@ const urgencyImages = {
 };
 
 export default urgencyImages;
+
