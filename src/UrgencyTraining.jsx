@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import slides from "./urgencySlides";
+import urgencyImages from "./img/urgencyImages";
 import { getCurrentUser } from "./Accounts";
 
 /**
@@ -7,6 +8,11 @@ import { getCurrentUser } from "./Accounts";
  * - Shows a progress bar
  * - "Mark Complete" logs completion for that slide
  * - "Continue Studying" lets you review slides without changing completion
+ *
+ * Image support:
+ * - Add `imgKey` to a slide object in urgencySlides.js
+ * - Ensure that key exists in src/img/urgencyImages.js
+ * - The image will render above the slide title
  */
 export default function UrgencyTraining() {
   const user = getCurrentUser();
@@ -52,6 +58,12 @@ export default function UrgencyTraining() {
 
   const active = slides?.[index] || { title: "No slides", body: "" };
 
+  // Resolve optional image for this slide
+  const imgSrc =
+    active?.imgKey && urgencyImages && Object.prototype.hasOwnProperty.call(urgencyImages, active.imgKey)
+      ? urgencyImages[active.imgKey]
+      : null;
+
   const prev = () => setIndex((i) => Math.max(0, i - 1));
   const next = () => setIndex((i) => Math.min(total - 1, i + 1));
 
@@ -78,13 +90,36 @@ export default function UrgencyTraining() {
       <div className="mode-tabbar">Urgency Training</div>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, color: "#666" }}>
-        <div>Slide {index + 1} / {total}</div>
-        <div>Completed: {completed.length}/{total} ({completedPct}%)</div>
+        <div>
+          Slide {index + 1} / {total}
+        </div>
+        <div>
+          Completed: {completed.length}/{total} ({completedPct}%)
+        </div>
       </div>
 
       <div className="progress-outer">
         <div className="progress-inner" style={{ width: `${pct}%` }} />
       </div>
+
+      {imgSrc && (
+        <img
+          src={imgSrc}
+          alt={active.title}
+          style={{
+            width: "100%",
+            maxHeight: 360,
+            objectFit: "contain",
+            borderRadius: 12,
+            marginTop: 12,
+            marginBottom: 12,
+            background: "#fff",
+            boxShadow: "0 1px 4px #0001",
+            padding: 8,
+          }}
+          loading="lazy"
+        />
+      )}
 
       <h3 style={{ marginTop: 14 }}>{active.title}</h3>
 
@@ -96,18 +131,28 @@ export default function UrgencyTraining() {
           background: "#fff",
           boxShadow: "0 1px 4px #0001",
           whiteSpace: "pre-wrap",
-          lineHeight: 1.5
+          lineHeight: 1.5,
         }}
       >
         {active.body}
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="button" onClick={prev} disabled={index === 0}>Previous</button>
-        <button className="button" onClick={next} disabled={index === total - 1}>Next</button>
-        <button className="button" onClick={markComplete}>Mark Complete</button>
-        <button className="button secondary" onClick={continueStudying}>Continue Studying</button>
-        <button className="button secondary" onClick={resetProgress}>Reset Progress</button>
+        <button className="button" onClick={prev} disabled={index === 0}>
+          Previous
+        </button>
+        <button className="button" onClick={next} disabled={index === total - 1}>
+          Next
+        </button>
+        <button className="button" onClick={markComplete}>
+          Mark Complete
+        </button>
+        <button className="button secondary" onClick={continueStudying}>
+          Continue Studying
+        </button>
+        <button className="button secondary" onClick={resetProgress}>
+          Reset Progress
+        </button>
       </div>
     </div>
   );
